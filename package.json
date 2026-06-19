@@ -1,0 +1,15 @@
+{
+  "name": "tangkap-pokemon",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Offline Pokemon catch-and-collect game in Bahasa Indonesia",
+  "scripts": {
+    "serve": "http-server -p 5173 -c-1 -s .",
+    "fetch-sprites": "node scripts/fetch-sprites.mjs",
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.45.0",
+    "http-server": "^14.1.1"
+  }
+}
