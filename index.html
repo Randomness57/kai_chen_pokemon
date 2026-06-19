@@ -13,6 +13,7 @@
       <h1 data-testid="title">Tangkap Pokémon!</h1>
       <p data-testid="subtitle" class="subtitle"></p>
       <button data-testid="play-btn" class="btn btn-big">Main!</button>
+      <button data-testid="guess-mode-btn" class="btn btn-big btn-guess">Tebak Pokémon!</button>
       <button data-testid="open-pokedex-btn" class="btn">Koleksiku</button>
       <button data-testid="mute-btn" class="btn btn-icon" aria-label="suara">🔊</button>
     </section>
@@ -37,6 +38,18 @@
       </div>
     </section>
 
+    <section data-screen="guess" class="screen" hidden>
+      <button data-testid="guess-back-btn" class="btn btn-back">Kembali</button>
+      <div data-testid="guess-score" class="guess-score"></div>
+      <div data-testid="guess-prompt" class="wild-name guess-prompt"></div>
+      <div class="stage guess-stage">
+        <img data-testid="guess-sprite" class="wild-sprite silhouette" alt="" />
+      </div>
+      <div data-testid="guess-result" class="result-msg"></div>
+      <div data-testid="guess-options" class="guess-options"></div>
+      <button data-testid="guess-next-btn" class="btn btn-big" hidden>Lanjut!</button>
+    </section>
+
     <section data-screen="pokedex" class="screen" hidden>
       <button data-testid="dex-back-btn" class="btn btn-back">Kembali</button>
       <h2>Koleksiku</h2>
@@ -51,6 +64,7 @@
   <script src="src/data.js"></script>
   <script src="src/spawn.js"></script>
   <script src="src/catch.js"></script>
+  <script src="src/guess.js"></script>
   <script src="src/sound.js"></script>
   <script src="src/pokedex.js"></script>
   <script src="src/main.js"></script>

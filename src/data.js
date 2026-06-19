@@ -55,6 +55,13 @@ PG.data = (function () {
     notCaught: 'Belum ditangkap',
     back: 'Kembali',
     unknownName: '???',
+    guessMode: 'Tebak Pokémon!',
+    guessPrompt: 'Siapa Pokémon ini?',
+    guessCorrect: 'Benar! Ini {name}! 🎉',
+    guessWrong: 'Yah! Ini {name}.',
+    guessNext: 'Lanjut!',
+    guessScore: 'Skor: {x}  ·  Streak: {y}',
+    guessBest: 'Rekor terbaik: {z}',
   };
   const byId = {};
   ROSTER.forEach(p => { byId[p.id] = p; });
