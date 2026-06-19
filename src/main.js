@@ -35,14 +35,55 @@
 
   function updateMuteBtn() { const b = tid('mute-btn'); if (b) b.textContent = state.muted ? '🔇' : '🔊'; }
 
-  // --- ENCOUNTER (extended in Task 11) ---
+  // --- ring animation ---
+  let ringScale = 1, ringDir = -1, ringRAF = null;
+  function startRing() {
+    stopRing(); ringScale = 1; ringDir = -1;
+    const ring = tid('catch-ring');
+    (function step() {
+      ringScale += ringDir * 0.02;
+      if (ringScale <= 0.2) { ringScale = 0.2; ringDir = 1; }
+      if (ringScale >= 1) { ringScale = 1; ringDir = -1; }
+      if (ring) ring.style.transform = 'translate(-50%,-50%) scale(' + ringScale + ')';
+      ringRAF = requestAnimationFrame(step);
+    })();
+  }
+  function stopRing() { if (ringRAF) { cancelAnimationFrame(ringRAF); ringRAF = null; } }
+  function currentRingScale() { return ringScale; }
+
+  function startEncounter(pokemon) {
+    state.current = pokemon;
+    showScreen('game');
+    tid('find-area').hidden = true;
+    tid('encounter-area').hidden = false;
+    tid('legendary-alert').hidden = pokemon.tier !== 'legendary';
+    tid('shiny-alert').hidden = !pokemon.shiny;
+    const sprite = tid('wild-sprite');
+    sprite.src = PG.data.spritePath(pokemon.id, pokemon.shiny);
+    sprite.classList.toggle('is-shiny', !!pokemon.shiny);
+    tid('wild-name').textContent = pokemon.name;
+    tid('catch-ring').style.borderColor = PG.data.TIERS[pokemon.tier].ring;
+    tid('quality-msg').textContent = '';
+    tid('result-msg').textContent = '';
+    tid('throw-btn').hidden = false;
+    tid('throw-btn').disabled = false;
+    tid('find-another-btn').hidden = true;
+    startRing();
+  }
+
+  // --- ENCOUNTER ---
   function showFind() {
     showScreen('game');
     tid('find-area').hidden = false;
     tid('encounter-area').hidden = true;
+    stopRing();
     state.current = null;
   }
-  function spawn() { /* Task 11 */ }
+  function spawn() {
+    const p = PG.spawn.wild(rng);
+    if (forced.shiny != null) { p.shiny = forced.shiny; forced.shiny = null; }
+    startEncounter(p);
+  }
 
   // --- CATCH (extended in Task 12) ---
   function onThrow() { /* Task 12 */ }
@@ -62,7 +103,7 @@
   }
 
   window.GAME = {
-    forceSpawn(id, shiny) { /* Task 11 fills this in */ },
+    forceSpawn(id, shiny) { const p = PG.data.get(id); startEncounter({ id: p.id, name: p.name, tier: p.tier, shiny: !!shiny }); },
     forceShiny(b) { forced.shiny = b; },
     forceThrowQuality(q) { forced.quality = q; },
     forceCatchResult(b) { forced.result = b; },
@@ -71,7 +112,7 @@
   };
 
   // expose for sibling functions added in later tasks
-  PG._app = { tid, wait, showScreen, persist, openPokedex, state, forced, rng, TEST, showFind };
+  PG._app = { tid, wait, showScreen, persist, openPokedex, state, forced, rng, TEST, showFind, startRing, stopRing, currentRingScale, startEncounter };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => { wire(); showScreen('title'); });
   else { wire(); showScreen('title'); }
