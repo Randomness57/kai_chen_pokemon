@@ -125,7 +125,23 @@
     startRing();
   }
 
-  function celebrate(big) { /* visuals added in Task 13 */ }
+  function celebrate(big) {
+    const layer = tid('confetti');
+    if (!layer) return;
+    layer.innerHTML = '';
+    const colors = ['#ef4444', '#facc15', '#4ade80', '#60a5fa', '#f472b6'];
+    const n = big ? 44 : 18;
+    for (let i = 0; i < n; i++) {
+      const bit = document.createElement('div');
+      bit.className = 'confetti-bit';
+      bit.style.left = (rng.float() * 100) + '%';
+      bit.style.background = colors[i % colors.length];
+      bit.style.animationDelay = (rng.float() * 0.3) + 's';
+      layer.appendChild(bit);
+    }
+    layer.setAttribute('data-active', '1');
+    setTimeout(() => { layer.innerHTML = ''; layer.removeAttribute('data-active'); }, TEST ? 50 : 1600);
+  }
 
   function wire() {
     tid('subtitle').textContent = PG.data.t('subtitle');
@@ -138,6 +154,16 @@
     tid('dex-back-btn').addEventListener('click', () => showScreen('title'));
     const mb = tid('mute-btn');
     if (mb) mb.addEventListener('click', () => { state.muted = PG.sound.toggleMute(); updateMuteBtn(); });
+    const stage = tid('stage');
+    if (stage) {
+      let startY = null;
+      stage.addEventListener('pointerdown', e => { startY = e.clientY; });
+      stage.addEventListener('pointerup', e => {
+        const tb = tid('throw-btn');
+        if (startY != null && (startY - e.clientY) > 30 && state.current && !tb.disabled && !tb.hidden) onThrow();
+        startY = null;
+      });
+    }
     updateMuteBtn();
   }
 
