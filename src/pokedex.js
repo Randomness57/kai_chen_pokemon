@@ -15,6 +15,12 @@ PG.pokedex = {
         badge.setAttribute('data-testid', 'shiny-badge-' + p.id);
         card.appendChild(badge);
       }
+      if (caught) {
+        const num = document.createElement('span');
+        num.className = 'dex-num';
+        num.textContent = '#' + String(p.id).padStart(3, '0');
+        card.appendChild(num);
+      }
       const img = document.createElement('img');
       img.className = 'dex-img';
       img.src = PG.data.spritePath(p.id, shiny);
