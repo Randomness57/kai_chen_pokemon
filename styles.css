@@ -1,0 +1,7 @@
+:root { --pokeRed: #ef4444; --grass1: #7ed957; --grass2: #4ea64b; }
+* { box-sizing: border-box; }
+body { margin: 0; font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+  background: linear-gradient(160deg, var(--grass1), var(--grass2)); color: #1f2937; }
+.screen { display: none; min-height: 100vh; padding: 16px; }
+.screen.active { display: flex; flex-direction: column; align-items: center; }
+h1 { font-size: clamp(28px, 6vw, 56px); color: #fff; text-shadow: 2px 2px 0 var(--pokeRed); }
