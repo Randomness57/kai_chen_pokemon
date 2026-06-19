@@ -10,7 +10,10 @@
     caughtShiny: new Set(saved.caughtShiny || []),
     muted: saved.muted || false,
     current: null,
+    guessBest: saved.guessBest || 0,
   };
+  // Runtime-only state for the guess mode (not persisted beyond guessBest).
+  const guess = { round: null, score: 0, streak: 0, answered: false };
   const forced = { shiny: null, quality: null, result: null };
 
   function tid(id) { return document.querySelector('[data-testid="' + id + '"]'); }
@@ -25,7 +28,7 @@
   }
 
   function persist() {
-    PG.storage.save({ caught: [...state.caught], caughtShiny: [...state.caughtShiny], muted: state.muted });
+    PG.storage.save({ caught: [...state.caught], caughtShiny: [...state.caughtShiny], muted: state.muted, guessBest: state.guessBest });
   }
 
   function openPokedex() {
@@ -143,6 +146,80 @@
     setTimeout(() => { layer.innerHTML = ''; layer.removeAttribute('data-active'); }, TEST ? 50 : 1600);
   }
 
+  // --- GUESS MODE (Who's That Pokémon?) ---
+  function renderGuessScore() {
+    tid('guess-score').textContent =
+      PG.data.t('guessScore', { x: guess.score, y: guess.streak }) +
+      '  ·  ' + PG.data.t('guessBest', { z: state.guessBest });
+  }
+
+  function renderGuessRound() {
+    guess.answered = false;
+    const r = guess.round;
+    const sprite = tid('guess-sprite');
+    sprite.src = PG.data.spritePath(r.target.id, false);
+    sprite.classList.add('silhouette');
+    sprite.alt = '';
+    tid('guess-prompt').textContent = PG.data.t('guessPrompt');
+    tid('guess-result').textContent = '';
+    tid('guess-next-btn').hidden = true;
+    const opts = tid('guess-options');
+    opts.innerHTML = '';
+    r.options.forEach(o => {
+      const b = document.createElement('button');
+      b.className = 'btn';
+      b.textContent = o.name;
+      b.setAttribute('data-testid', 'guess-option-' + o.id);
+      if (o.id === r.target.id) b.setAttribute('data-correct', '1');
+      b.addEventListener('click', () => onGuessAnswer(o.id));
+      opts.appendChild(b);
+    });
+    renderGuessScore();
+  }
+
+  function startGuessRound() {
+    guess.round = PG.guess.round(rng);
+    renderGuessRound();
+  }
+
+  function startGuess() {
+    guess.score = 0;
+    guess.streak = 0;
+    showScreen('guess');
+    startGuessRound();
+  }
+
+  function onGuessAnswer(id) {
+    if (guess.answered) return;
+    guess.answered = true;
+    const target = guess.round.target;
+    const correct = id === target.id;
+    // Reveal the colored sprite + paint the option buttons.
+    const sprite = tid('guess-sprite');
+    sprite.classList.remove('silhouette');
+    sprite.alt = target.name;
+    tid('guess-options').querySelectorAll('.btn').forEach(b => {
+      b.disabled = true;
+      const oid = Number(b.getAttribute('data-testid').replace('guess-option-', ''));
+      if (oid === target.id) b.classList.add('correct');
+      else if (oid === id) b.classList.add('wrong');
+    });
+    if (correct) {
+      guess.score += 1;
+      guess.streak += 1;
+      if (guess.streak > state.guessBest) { state.guessBest = guess.streak; persist(); }
+      tid('guess-result').textContent = PG.data.t('guessCorrect', { name: target.name });
+      PG.sound.play('catch');
+      celebrate(false);
+    } else {
+      guess.streak = 0;
+      tid('guess-result').textContent = PG.data.t('guessWrong', { name: target.name });
+      PG.sound.play('throw');
+    }
+    renderGuessScore();
+    tid('guess-next-btn').hidden = false;
+  }
+
   function wire() {
     tid('subtitle').textContent = PG.data.t('subtitle');
     tid('play-btn').addEventListener('click', () => { PG.sound.play('blip'); showFind(); });
@@ -151,6 +228,9 @@
     tid('throw-btn').addEventListener('click', onThrow);
     tid('find-another-btn').addEventListener('click', () => { PG.sound.play('blip'); showFind(); });
     tid('back-btn').addEventListener('click', () => showScreen('title'));
+    tid('guess-mode-btn').addEventListener('click', () => { PG.sound.play('blip'); startGuess(); });
+    tid('guess-back-btn').addEventListener('click', () => showScreen('title'));
+    tid('guess-next-btn').addEventListener('click', () => { PG.sound.play('blip'); startGuessRound(); });
     tid('dex-back-btn').addEventListener('click', () => showScreen('title'));
     const mb = tid('mute-btn');
     if (mb) mb.addEventListener('click', () => { state.muted = PG.sound.toggleMute(); updateMuteBtn(); });
@@ -173,7 +253,22 @@
     forceThrowQuality(q) { forced.quality = q; },
     forceCatchResult(b) { forced.result = b; },
     getState() { return { caught: [...state.caught], caughtShiny: [...state.caughtShiny], muted: state.muted, current: state.current }; },
-    resetSave() { PG.storage.clear(); state.caught.clear(); state.caughtShiny.clear(); if (tid('pokedex-grid')) PG.pokedex.render(tid('pokedex-grid'), tid('dex-progress'), state); },
+    startGuess() { startGuess(); },
+    forceGuessRound(targetId, optionIds) {
+      const target = PG.data.get(targetId);
+      const options = optionIds.map(id => PG.data.get(id));
+      guess.round = { target, options };
+      showScreen('guess');
+      renderGuessRound();
+    },
+    getGuessState() {
+      return {
+        score: guess.score, streak: guess.streak, best: state.guessBest, answered: guess.answered,
+        targetId: guess.round ? guess.round.target.id : null,
+        optionIds: guess.round ? guess.round.options.map(o => o.id) : [],
+      };
+    },
+    resetSave() { PG.storage.clear(); state.caught.clear(); state.caughtShiny.clear(); state.guessBest = 0; if (tid('pokedex-grid')) PG.pokedex.render(tid('pokedex-grid'), tid('dex-progress'), state); },
   };
 
   // expose for sibling functions added in later tasks

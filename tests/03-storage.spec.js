@@ -9,6 +9,7 @@ test('storage round-trips save data with sane defaults', async ({ page }) => {
     const loaded = PG.storage.load();
     return { empty, loaded };
   });
-  expect(out.empty).toEqual({ caught: [], caughtShiny: [], muted: false });
-  expect(out.loaded).toEqual({ caught: [25, 1], caughtShiny: [25], muted: true });
+  expect(out.empty).toEqual({ caught: [], caughtShiny: [], muted: false, guessBest: 0 });
+  // load() fills missing keys from defaults, so guessBest appears even when not saved.
+  expect(out.loaded).toEqual({ caught: [25, 1], caughtShiny: [25], muted: true, guessBest: 0 });
 });
