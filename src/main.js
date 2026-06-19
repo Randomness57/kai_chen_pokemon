@@ -85,8 +85,47 @@
     startEncounter(p);
   }
 
-  // --- CATCH (extended in Task 12) ---
-  function onThrow() { /* Task 12 */ }
+  // --- CATCH ---
+  async function onThrow() {
+    if (!state.current) return;
+    const btn = tid('throw-btn');
+    if (btn.disabled) return;
+    btn.disabled = true;
+    stopRing();
+    const quality = forced.quality != null ? forced.quality : PG.catch.qualityFromRing(currentRingScale());
+    forced.quality = null;
+    tid('quality-msg').textContent = PG.data.qualityLabel(quality);
+    PG.sound.play('throw');
+    await wait(400);
+    for (let i = 0; i < 3; i++) { PG.sound.play('tick'); await wait(220); }
+    const chance = PG.catch.chance(state.current.tier, quality);
+    const caught = forced.result != null ? forced.result : rng.chance(chance);
+    forced.result = null;
+    if (caught) resolveCaught(); else resolveMiss();
+  }
+
+  function resolveCaught() {
+    const p = state.current;
+    state.caught.add(p.id);
+    if (p.shiny) state.caughtShiny.add(p.id);
+    persist();
+    let msg;
+    if (p.shiny) { msg = PG.data.t('caughtShiny', { name: p.name }); PG.sound.play('sparkle'); }
+    else if (p.tier === 'legendary') { msg = PG.data.t('caughtLegendary', { name: p.name }); PG.sound.play('fanfare'); }
+    else { msg = PG.data.t('caught', { name: p.name }); PG.sound.play('catch'); }
+    tid('result-msg').textContent = msg;
+    tid('throw-btn').hidden = true;
+    tid('find-another-btn').hidden = false;
+    celebrate(p.shiny || p.tier === 'legendary');
+  }
+
+  function resolveMiss() {
+    tid('result-msg').textContent = PG.data.t('miss');
+    tid('throw-btn').disabled = false;
+    startRing();
+  }
+
+  function celebrate(big) { /* visuals added in Task 13 */ }
 
   function wire() {
     tid('subtitle').textContent = PG.data.t('subtitle');
