@@ -10,7 +10,40 @@
   <main id="app">
     <section data-screen="title" class="screen active">
       <h1 data-testid="title">Tangkap Pokémon!</h1>
+      <p data-testid="subtitle" class="subtitle"></p>
+      <button data-testid="play-btn" class="btn btn-big">Main!</button>
+      <button data-testid="open-pokedex-btn" class="btn">Koleksiku</button>
+      <button data-testid="mute-btn" class="btn btn-icon" aria-label="suara">🔊</button>
     </section>
+
+    <section data-screen="game" class="screen" hidden>
+      <button data-testid="back-btn" class="btn btn-back">Kembali</button>
+      <div data-testid="find-area" class="find-area">
+        <button data-testid="find-btn" class="btn btn-big">Cari Pokémon!</button>
+      </div>
+      <div data-testid="encounter-area" class="encounter-area" hidden>
+        <div data-testid="legendary-alert" class="alert legendary" hidden>⚡ Pokémon Legendaris muncul! ⚡</div>
+        <div data-testid="shiny-alert" class="alert shiny" hidden>✨ Pokémon Shiny langka! ✨</div>
+        <div data-testid="wild-name" class="wild-name"></div>
+        <div data-testid="stage" class="stage">
+          <img data-testid="wild-sprite" class="wild-sprite" alt="" />
+          <div data-testid="catch-ring" class="ring"></div>
+        </div>
+        <div data-testid="quality-msg" class="quality-msg"></div>
+        <div data-testid="result-msg" class="result-msg"></div>
+        <button data-testid="throw-btn" class="btn btn-big">Lempar Poké Ball!</button>
+        <button data-testid="find-another-btn" class="btn btn-big" hidden>Cari Pokémon lain!</button>
+      </div>
+    </section>
+
+    <section data-screen="pokedex" class="screen" hidden>
+      <button data-testid="dex-back-btn" class="btn btn-back">Kembali</button>
+      <h2>Koleksiku</h2>
+      <div data-testid="dex-progress" class="dex-progress"></div>
+      <div data-testid="pokedex-grid" class="grid"></div>
+    </section>
+
+    <div data-testid="confetti" class="confetti-layer" aria-hidden="true"></div>
   </main>
   <script src="src/rng.js"></script>
   <script src="src/storage.js"></script>
@@ -19,5 +52,6 @@
   <script src="src/catch.js"></script>
   <script src="src/sound.js"></script>
   <script src="src/pokedex.js"></script>
+  <script src="src/main.js"></script>
 </body>
 </html>
