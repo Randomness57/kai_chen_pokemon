@@ -1,21 +1,20 @@
 window.PG = window.PG || {};
 PG.guess = {
-  // Fisher–Yates shuffle driven by the seedable rng (non-mutating).
-  shuffle(arr, rng) {
-    const a = arr.slice();
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = rng.int(i + 1);
-      const tmp = a[i]; a[i] = a[j]; a[j] = tmp;
-    }
-    return a;
-  },
-  // Build one round: a target Pokémon plus (count-1) distractors, options shuffled.
-  round(rng, roster, count) {
+  // Pick a random Pokémon to silhouette. (The player types the name, so no options.)
+  round(rng, roster) {
     roster = roster || PG.data.ROSTER;
-    count = Math.min(count || 4, roster.length);
-    const target = rng.pick(roster);
-    const pool = PG.guess.shuffle(roster.filter(p => p.id !== target.id), rng);
-    const options = PG.guess.shuffle([target].concat(pool.slice(0, count - 1)), rng);
-    return { target, options };
+    return { target: rng.pick(roster) };
+  },
+  // Forgiving normalization: lowercase, drop spaces/punctuation/accents so
+  // "Mr. Mime", "mr mime", "mrmime" and "Ho-Oh", "ho oh" all compare equal.
+  normalize(s) {
+    return String(s == null ? '' : s)
+      .toLowerCase()
+      .normalize('NFD').replace(/[̀-ͯ]/g, '') // strip accents (é → e)
+      .replace(/[^a-z0-9]/g, '');
+  },
+  isCorrect(input, name) {
+    const a = PG.guess.normalize(input);
+    return a.length > 0 && a === PG.guess.normalize(name);
   },
 };

@@ -1,22 +1,134 @@
 import { writeFile, mkdir } from 'node:fs/promises';
 
-// Must stay in sync with src/data.js ROSTER ids.
-const IDS = [25, 133, 1, 4, 7, 39, 52, 143, 94, 130, 282, 700, 448, 6, 9, 3, 658, 149, 530, 150, 384, 718];
-const BASE = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork';
+// ---------------------------------------------------------------------------
+// Roster source of truth. Ids are grouped by tier; the script fetches each
+// Pokémon's English name + body shape from PokeAPI and downloads its art, then
+// GENERATES src/roster-data.js (consumed by src/data.js) + images/*. This keeps
+// the 180-strong roster maintainable: edit the id lists here, re-run, done.
+// ---------------------------------------------------------------------------
+const TIER_IDS = {
+  common: [25, 133, 1, 4, 7, 39, 52],
+  uncommon: [
+    143, 94, 130, 282, 700, 448, 131, 59, 65, 68, 123, 196, 197, 778, 359, 461,
+    83, 105, 122, 127, 132, 115, 169, 227, 233, 302, 303, 332, 354, 405, 426,
+    442, 472, 477, 479, 563, 596, 604, 628, 663, 687, 701, 711, 745, 768, 849,
+    // +100 expansion (uncommon)
+    38, 103, 31, 34, 36, 40, 73, 76, 80, 85, 89, 91, 99, 108, 112, 121, 124,
+    125, 126, 134, 135, 136, 139, 141, 157, 160, 154, 181, 199, 212, 214, 229,
+    232, 237, 241, 272, 279, 319, 323, 365, 437, 452, 510, 521, 531, 534, 537,
+    545, 556, 569,
+  ],
+  rare: [
+    6, 9, 3, 658, 149, 530, 248, 445, 376, 257, 637, 681, 887,
+    306, 464, 553, 625, 635, 715, 784, 861, 884,
+    // +100 expansion (rare)
+    260, 254, 389, 392, 395, 497, 500, 503, 612, 706, 724, 727, 730, 815, 818,
+    330, 334, 475, 571, 609, 623, 998, 1000, 911, 908, 914, 983, 776, 526, 565,
+    621, 286,
+  ],
+  legendary: [
+    150, 384, 718, 249, 250, 487, 888,
+    // +100 expansion (legendary / mythical)
+    151, 251, 243, 244, 245, 380, 381, 382, 383, 483, 484, 491, 492, 493, 643,
+    644, 646, 716, 717, 791, 792, 889, 890, 386,
+  ],
+};
+const WEIGHTS = { 718: 20 }; // Zygarde keeps its boosted spawn weight.
+const TIER_ORDER = ['common', 'uncommon', 'rare', 'legendary'];
 
-async function grab(url, dest) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
-  const buf = Buffer.from(await res.arrayBuffer());
-  if (buf.length < 100) throw new Error(`Suspiciously small file for ${url}`);
-  await writeFile(dest, buf);
+const ART = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork';
+const SPECIES = 'https://pokeapi.co/api/v2/pokemon-species';
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+// Retry transient network failures (ETIMEDOUT/5xx) before giving up.
+async function withRetry(fn, tries = 4) {
+  let lastErr = null;
+  for (let i = 0; i < tries; i++) {
+    try {
+      const out = await fn();
+      if (out !== undefined) return out;
+    } catch (e) { lastErr = e; }
+    await sleep(400 * (i + 1));
+  }
+  if (lastErr) console.warn('  retry exhausted:', lastErr.message);
+  return null;
+}
+
+async function grab(url) {
+  return withRetry(async () => {
+    const res = await fetch(url);
+    if (res.status === 404) return null;        // genuinely absent — don't retry
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (buf.length < 100) throw new Error('tiny file');
+    return buf;
+  });
+}
+
+async function species(id) {
+  return withRetry(async () => {
+    const res = await fetch(`${SPECIES}/${id}`);
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json();
+    const en = (json.names || []).find(n => n.language && n.language.name === 'en');
+    const name = en ? en.name : json.name;
+    const shape = json.shape ? json.shape.name : 'unknown';
+    return { name, shape };
+  });
 }
 
 await mkdir('images/shiny', { recursive: true });
-for (const id of IDS) {
-  await grab(`${BASE}/${id}.png`, `images/${id}.png`);
-  await grab(`${BASE}/shiny/${id}.png`, `images/shiny/${id}.png`);
-  console.log('saved', id);
+
+// Build a flat, de-duplicated, tier-ordered work list.
+const seen = new Set();
+const work = [];
+for (const tier of TIER_ORDER) {
+  for (const id of TIER_IDS[tier]) {
+    if (seen.has(id)) continue;
+    seen.add(id);
+    work.push({ id, tier });
+  }
 }
-await writeFile('images/manifest.json', JSON.stringify(IDS));
-console.log(`done: ${IDS.length} Pokemon (normal + shiny)`);
+
+const roster = [];
+const shapes = {};
+const manifest = [];
+const shinyFallback = [];
+const missing = [];
+
+for (const { id, tier } of work) {
+  const normal = await grab(`${ART}/${id}.png`);
+  if (!normal) { missing.push(id); console.warn('MISSING art, skipping', id); continue; }
+  const meta = await species(id);
+  if (!meta) { missing.push(id); console.warn('MISSING species, skipping', id); continue; }
+  await writeFile(`images/${id}.png`, normal);
+  let shiny = await grab(`${ART}/shiny/${id}.png`);
+  if (!shiny) { shiny = normal; shinyFallback.push(id); }
+  await writeFile(`images/shiny/${id}.png`, shiny);
+  const entry = { id, name: meta.name, tier };
+  if (WEIGHTS[id] != null) entry.weight = WEIGHTS[id];
+  roster.push(entry);
+  shapes[id] = meta.shape;
+  manifest.push(id);
+  console.log('saved', String(id).padStart(4), tier.padEnd(9), meta.name, '·', meta.shape);
+}
+
+await writeFile('images/manifest.json', JSON.stringify(manifest));
+await writeFile('images/shapes.json', JSON.stringify(shapes));
+
+// Generate the classic-script data module the game loads (offline-safe; no fetch).
+const banner = `// AUTO-GENERATED by scripts/fetch-sprites.mjs — do not edit by hand.\n` +
+  `// ${roster.length} Pokémon with English names, tiers, and PokeAPI body shapes.\n`;
+const body =
+  `window.PG = window.PG || {};\n` +
+  `PG.rosterData = {\n` +
+  `  ROSTER: ${JSON.stringify(roster)},\n` +
+  `  SHAPES: ${JSON.stringify(shapes)},\n` +
+  `};\n`;
+await writeFile('src/roster-data.js', banner + body);
+
+console.log(`\ndone: ${roster.length} Pokemon (normal + shiny) -> src/roster-data.js`);
+if (shinyFallback.length) console.log(`shiny→normal fallback (${shinyFallback.length}):`, shinyFallback.join(', '));
+if (missing.length) console.log(`MISSING, excluded (${missing.length}):`, missing.join(', '));
