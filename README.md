@@ -19,7 +19,8 @@ vanilla JavaScript — no framework, no build step.
   Each throw spends one of the chosen ball (the picker shows remaining counts and
   saves them between sessions). Plain Poké Balls are unlimited, so you can never
   get stuck. Difficulty also depends on the Pokémon's rarity tier
-  (common → legendary).
+  (common → legendary). Miss too many times (4) and the Pokémon **runs away** —
+  so pick a stronger ball when it counts.
 
 - **Tebak Pokémon! (Guess)** — Recognise the silhouette and type its name on a
   real keyboard. The on-screen board is a guide: it pulses the next key and

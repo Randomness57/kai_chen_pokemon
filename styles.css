@@ -278,10 +278,20 @@ h2 {
   100% { transform: translateY(0) scale(1); opacity: 1; }
 }
 
+/* Flee: too many misses — the Pokémon dashes off-screen and is gone */
+.wild-sprite.flee {
+  animation: spriteFlee 0.6s ease-in forwards;
+}
+@keyframes spriteFlee {
+  0%   { transform: translateX(0) scale(1); opacity: 1; }
+  35%  { transform: translateX(-12%) scale(1); opacity: 1; }
+  100% { transform: translateX(135%) scale(0.4) rotate(8deg); opacity: 0; }
+}
+
 /* Disable all ball/sprite animations for reduced-motion users */
 @media (prefers-reduced-motion: reduce) {
   .poke-ball.throwing, .poke-ball.wobble, .poke-ball.open,
-  .wild-sprite.captured, .wild-sprite.escape { animation: none !important; }
+  .wild-sprite.captured, .wild-sprite.escape, .wild-sprite.flee { animation: none !important; }
 }
 
 .ring {

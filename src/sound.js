@@ -24,6 +24,7 @@ PG.sound = (function () {
     catch: () => { tone(523, 0.12); setTimeout(() => tone(659, 0.12), 90); setTimeout(() => tone(784, 0.18), 180); },
     fanfare: () => { [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => tone(f, 0.2, 'triangle', 0.1), i * 120)); },
     sparkle: () => { [1318, 1568, 2093].forEach((f, i) => setTimeout(() => tone(f, 0.12, 'sine', 0.06), i * 70)); },
+    flee: () => { [440, 330, 220].forEach((f, i) => setTimeout(() => tone(f, 0.14, 'sawtooth', 0.07), i * 90)); },
   };
   return {
     play(name) { const fn = SFX[name]; if (fn) fn(); },

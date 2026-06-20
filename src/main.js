@@ -66,7 +66,7 @@
       ball.style.transform = '';
       ball.style.removeProperty('--arc-dy');
     }
-    if (sprite) sprite.classList.remove('captured', 'escape');
+    if (sprite) sprite.classList.remove('captured', 'escape', 'flee');
   }
 
   function snapBack() {
@@ -76,6 +76,7 @@
   }
 
   let missCount = 0;
+  const MAX_MISSES = 4; // the wild Pokémon flees on this many misses
   const MISS_HINTS = [
     '',
     '🤫',
@@ -292,12 +293,30 @@
 
   function resolveMiss() {
     missCount += 1;
+    if (missCount >= MAX_MISSES) { resolveFled(); return; }
     tid('result-msg').textContent = PG.data.t('miss');
     const hm = tid('hint-msg');
-    if (hm) hm.textContent = MISS_HINTS[Math.min(missCount, MISS_HINTS.length - 1)];
+    // On the last allowed miss, warn that it's about to bolt instead of a hint.
+    if (hm) hm.textContent = (missCount === MAX_MISSES - 1)
+      ? PG.data.t('fleeWarn')
+      : MISS_HINTS[Math.min(missCount, MISS_HINTS.length - 1)];
     if (!ballAvailable(state.ball)) selectBall('poke'); // ran out mid-encounter
     tid('throw-btn').disabled = false;
     startRing();
+  }
+
+  // Too many misses: the wild Pokémon bolts. No more throws — go find another.
+  function resolveFled() {
+    const p = state.current;
+    stopRing();
+    const sprite = tid('wild-sprite');
+    if (sprite) { sprite.classList.remove('escape', 'is-shiny'); sprite.classList.add('flee'); }
+    tid('result-msg').textContent = PG.data.t('fled', { name: p.name });
+    const hm = tid('hint-msg'); if (hm) hm.textContent = '';
+    tid('throw-btn').hidden = true;
+    tid('find-another-btn').hidden = false;
+    PG.sound.play('flee');
+    state.current = null; // can't throw at a Pokémon that's gone (also blocks flicks)
   }
 
   function celebrate(big) {
@@ -640,7 +659,7 @@
     forceShiny(b) { forced.shiny = b; },
     forceThrowQuality(q) { forced.quality = q; },
     forceCatchResult(b) { forced.result = b; },
-    getState() { return { caught: [...state.caught], caughtShiny: [...state.caughtShiny], muted: state.muted, current: state.current, ball: state.ball, inventory: Object.assign({}, state.inventory) }; },
+    getState() { return { caught: [...state.caught], caughtShiny: [...state.caughtShiny], muted: state.muted, current: state.current, ball: state.ball, inventory: Object.assign({}, state.inventory), misses: missCount, maxMisses: MAX_MISSES }; },
     selectBall(key) { selectBall(key); },
     setInventory(inv) { Object.assign(state.inventory, inv); persist(); refreshBallTray(); if (!ballAvailable(state.ball)) selectBall('poke'); },
     startGuess() { startGuess(); },

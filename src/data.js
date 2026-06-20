@@ -130,6 +130,8 @@ PG.data = (function () {
     caughtLegendary: 'LUAR BIASA! Kamu menangkap {name}! 🌟',
     caughtShiny: '✨ WOW! Kamu menangkap {name} Shiny langka! ✨',
     miss: 'Yah, lolos! Coba lagi!',
+    fleeWarn: '💨 Cepat! Dia mau kabur!',
+    fled: '{name} kabur! 🏃💨',
     findAnother: 'Cari Pokémon lain!',
     pokedexTitle: 'Koleksiku',
     progress: 'Tertangkap: {x} / {n}',
