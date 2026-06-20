@@ -57,6 +57,23 @@
   function stopRing() { if (ringRAF) { cancelAnimationFrame(ringRAF); ringRAF = null; } }
   function currentRingScale() { return ringScale; }
 
+  function resetBall() {
+    const ball = tid('poke-ball');
+    const sprite = tid('wild-sprite');
+    if (ball) {
+      ball.classList.remove('throwing', 'wobble', 'open', 'grabbing');
+      ball.style.transform = '';
+      ball.style.removeProperty('--arc-dy');
+    }
+    if (sprite) sprite.classList.remove('captured', 'escape');
+  }
+
+  function snapBack() {
+    const ball = tid('poke-ball');
+    if (!ball) return;
+    ball.style.transform = '';
+  }
+
   let missCount = 0;
   const MISS_HINTS = [
     '',
@@ -86,6 +103,7 @@
     tid('throw-btn').hidden = false;
     tid('throw-btn').disabled = false;
     tid('find-another-btn').hidden = true;
+    resetBall();
     startRing();
   }
 
@@ -95,6 +113,7 @@
     tid('find-area').hidden = false;
     tid('encounter-area').hidden = true;
     stopRing();
+    resetBall();
     state.current = null;
   }
   function spawn() {
@@ -104,22 +123,77 @@
   }
 
   // --- CATCH ---
-  async function onThrow() {
-    if (!state.current) return;
+  let throwing = false;
+
+  function requestThrow(source) {
+    if (!state.current || throwing) return;
     const btn = tid('throw-btn');
-    if (btn.disabled) return;
-    btn.disabled = true;
-    stopRing();
+    if (btn && btn.disabled) return;
     const quality = forced.quality != null ? forced.quality : PG.catch.qualityFromRing(currentRingScale());
     forced.quality = null;
+    beginThrow(quality);
+  }
+
+  async function beginThrow(quality) {
+    throwing = true;
+    let skip = false;
+    let skipResolve;
+    const skipPromise = new Promise(r => { skipResolve = r; });
+    const skipOnce = () => { skip = true; skipResolve(); };
+    document.addEventListener('pointerdown', skipOnce, { once: true });
+    const sw = ms => (skip || TEST) ? Promise.resolve() : Promise.race([wait(ms), skipPromise]);
+
+    const ball = tid('poke-ball');
+    const sprite = tid('wild-sprite');
+    const btn = tid('throw-btn');
+    if (btn) btn.disabled = true;
+    stopRing();
     tid('quality-msg').textContent = PG.data.qualityLabel(quality);
     PG.sound.play('throw');
-    await wait(400);
-    for (let i = 0; i < 3; i++) { PG.sound.play('tick'); await wait(220); }
+
+    // Compute arc offset so the ball travels to the sprite center.
+    if (ball && sprite) {
+      const bBox = ball.getBoundingClientRect();
+      const sBox = sprite.getBoundingClientRect();
+      const dy = (sBox.top + sBox.height / 2) - (bBox.top + bBox.height / 2);
+      ball.style.setProperty('--arc-dy', dy + 'px');
+    }
+
+    // Phase 1: Arc
+    if (ball) ball.classList.add('throwing');
+    await sw(300);
+
+    // Phase 2: Suck-in
+    if (sprite) { sprite.classList.remove('is-shiny'); sprite.classList.add('captured'); }
+    if (ball) ball.classList.remove('throwing');
+    await sw(350);
+
+    // Phase 3: Wobble x3
+    if (ball) ball.classList.add('wobble');
+    for (let i = 0; i < 3; i++) { PG.sound.play('tick'); await sw(220); }
+    if (ball) ball.classList.remove('wobble');
+
+    document.removeEventListener('pointerdown', skipOnce);
+
     const chance = PG.catch.chance(state.current.tier, quality);
     const caught = forced.result != null ? forced.result : rng.chance(chance);
     forced.result = null;
-    if (caught) resolveCaught(); else resolveMiss();
+    throwing = false;
+
+    if (caught) {
+      resolveCaught();
+    } else {
+      if (ball) ball.classList.add('open');
+      if (sprite) { sprite.classList.remove('captured'); sprite.classList.add('escape'); }
+      if (state.current && state.current.shiny && sprite) {
+        await sw(350);
+        sprite.classList.add('is-shiny');
+      } else {
+        await sw(350);
+      }
+      if (ball) ball.classList.remove('open');
+      resolveMiss();
+    }
   }
 
   function resolveCaught() {
@@ -320,7 +394,7 @@
     tid('play-btn').addEventListener('click', () => { PG.sound.play('blip'); showFind(); });
     tid('open-pokedex-btn').addEventListener('click', () => { PG.sound.play('blip'); openPokedex(); });
     tid('find-btn').addEventListener('click', () => { PG.sound.play('blip'); spawn(); });
-    tid('throw-btn').addEventListener('click', onThrow);
+    tid('throw-btn').addEventListener('click', () => requestThrow('button'));
     tid('find-another-btn').addEventListener('click', () => { PG.sound.play('blip'); showFind(); });
     tid('back-btn').addEventListener('click', () => showScreen('title'));
     tid('guess-mode-btn').addEventListener('click', () => { PG.sound.play('blip'); startGuess(); });
@@ -331,14 +405,44 @@
     tid('dex-back-btn').addEventListener('click', () => showScreen('title'));
     const mb = tid('mute-btn');
     if (mb) mb.addEventListener('click', () => { state.muted = PG.sound.toggleMute(); updateMuteBtn(); });
-    const stage = tid('stage');
-    if (stage) {
-      let startY = null;
-      stage.addEventListener('pointerdown', e => { startY = e.clientY; });
-      stage.addEventListener('pointerup', e => {
-        const tb = tid('throw-btn');
-        if (startY != null && (startY - e.clientY) > 30 && state.current && !tb.disabled && !tb.hidden) onThrow();
-        startY = null;
+    const ballEl = tid('poke-ball');
+    if (ballEl) {
+      const drag = { active: false, startX: 0, startY: 0 };
+      const FLICK_THRESHOLD = 24;
+
+      ballEl.addEventListener('pointerdown', e => {
+        if (throwing || !state.current) return;
+        drag.active = true;
+        drag.startX = e.clientX;
+        drag.startY = e.clientY;
+        ballEl.classList.add('grabbing');
+        ballEl.setPointerCapture(e.pointerId);
+      });
+
+      ballEl.addEventListener('pointermove', e => {
+        if (!drag.active) return;
+        const dx = e.clientX - drag.startX;
+        const dy = e.clientY - drag.startY;
+        ballEl.style.transform = 'translateX(calc(-50% + ' + dx + 'px)) translateY(' + dy + 'px)';
+      });
+
+      ballEl.addEventListener('pointerup', e => {
+        if (!drag.active) return;
+        drag.active = false;
+        ballEl.classList.remove('grabbing');
+        const upDelta = drag.startY - e.clientY;
+        if (upDelta >= FLICK_THRESHOLD && state.current && !throwing) {
+          forced.quality = forced.quality != null ? forced.quality : PG.catch.qualityFromRing(currentRingScale());
+          requestThrow('flick');
+        } else {
+          snapBack();
+        }
+      });
+
+      ballEl.addEventListener('pointercancel', () => {
+        drag.active = false;
+        ballEl.classList.remove('grabbing');
+        snapBack();
       });
     }
     updateMuteBtn();

@@ -206,6 +206,84 @@ h2 {
 @keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
 .wild-sprite.is-shiny { animation: bob 2.6s ease-in-out infinite, shinyGlow 1.4s ease-in-out infinite; }
 
+/* ---- Draggable Poké Ball ---- */
+.poke-ball {
+  position: absolute; bottom: 10px; left: 50%;
+  transform: translateX(-50%);
+  width: 54px; height: 54px; border-radius: 50%;
+  background: linear-gradient(180deg, var(--poke-red) 50%, var(--ball-white) 50%);
+  border: 3px solid var(--ball-black);
+  box-shadow: 0 5px 12px rgba(0,0,0,.4);
+  cursor: grab; touch-action: none; z-index: 10;
+  transition: transform 0.22s ease-out;
+}
+.poke-ball::before {
+  content: ''; position: absolute; top: 50%; left: 0; right: 0;
+  height: 3px; background: var(--ball-black); transform: translateY(-50%);
+}
+.poke-ball::after {
+  content: ''; position: absolute; top: 50%; left: 50%;
+  width: 16px; height: 16px;
+  background: var(--ball-white); border: 3px solid var(--ball-black); border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+.poke-ball.grabbing { cursor: grabbing; transition: none; }
+
+/* Throw arc: ball travels to the Pokémon */
+.poke-ball.throwing {
+  animation: ballArc 0.3s ease-in forwards;
+  pointer-events: none; transition: none;
+}
+@keyframes ballArc {
+  0%   { transform: translateX(-50%) translateY(0) scale(1); opacity: 1; }
+  100% { transform: translateX(-50%) translateY(var(--arc-dy, -110px)) scale(0.12); opacity: 0.25; }
+}
+
+/* Sprite suck-in toward the ball */
+.wild-sprite.captured {
+  animation: spriteCapture 0.35s ease-in forwards;
+}
+@keyframes spriteCapture {
+  0%   { transform: translateY(0) scale(1); opacity: 1; }
+  100% { transform: translateY(0) scale(0.05); opacity: 0; }
+}
+
+/* Ball wobble (3 cycles, then stops) */
+.poke-ball.wobble {
+  animation: ballWobble 0.22s ease-in-out 3 forwards;
+}
+@keyframes ballWobble {
+  0%,100% { transform: translateX(-50%) rotate(0deg); }
+  25%  { transform: translateX(-50%) rotate(-14deg); }
+  75%  { transform: translateX(-50%) rotate(14deg); }
+}
+
+/* Miss: ball bursts open */
+.poke-ball.open {
+  animation: ballOpen 0.32s ease-out forwards;
+  pointer-events: none;
+}
+@keyframes ballOpen {
+  0%   { transform: translateX(-50%) scale(1); opacity: 1; }
+  45%  { transform: translateX(-50%) scale(1.5); opacity: 0.7; }
+  100% { transform: translateX(-50%) scale(0.8); opacity: 0; }
+}
+
+/* Miss: sprite pops back */
+.wild-sprite.escape {
+  animation: spriteEscape 0.35s ease-out forwards;
+}
+@keyframes spriteEscape {
+  0%   { transform: translateY(0) scale(0.05); opacity: 0; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+/* Disable all ball/sprite animations for reduced-motion users */
+@media (prefers-reduced-motion: reduce) {
+  .poke-ball.throwing, .poke-ball.wobble, .poke-ball.open,
+  .wild-sprite.captured, .wild-sprite.escape { animation: none !important; }
+}
+
 .ring {
   position: absolute; top: 50%; left: 50%; width: 88%; height: 88%;
   transform: translate(-50%,-50%) scale(1);
