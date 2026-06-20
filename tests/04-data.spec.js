@@ -1,6 +1,6 @@
 const { test, expect } = require('@playwright/test');
 
-test('roster has 22 entries incl. Zygarde + Excadrill; strings format correctly', async ({ page }) => {
+test('roster has 188 entries incl. Zygarde + Excadrill + hard mons; strings format correctly', async ({ page }) => {
   await page.goto('/');
   const out = await page.evaluate(() => ({
     count: PG.data.ROSTER.length,
@@ -13,10 +13,17 @@ test('roster has 22 entries incl. Zygarde + Excadrill; strings format correctly'
     quality: PG.data.qualityLabel('perfect'),
     normalPath: PG.data.spritePath(25, false),
     shinyPath: PG.data.spritePath(25, true),
+    mimikyuShape: PG.data.shapeOf(778),
+    everyRosterHasShape: PG.data.ROSTER.every(p => PG.data.shapeOf(p.id) !== 'unknown'),
   }));
-  expect(out.count).toBe(22);
+  expect(out.count).toBe(188);
   expect(out.ids).toContain(718);
   expect(out.ids).toContain(530);
+  expect(out.ids).toContain(778); // Mimikyu (hard)
+  expect(out.ids).toContain(888); // Zacian (hard)
+  expect(out.ids).toContain(1000); // Gholdengo (gen 9, hard)
+  expect(out.mimikyuShape).toBe('squiggle');
+  expect(out.everyRosterHasShape).toBe(true);
   expect(out.zygardeWeight).toBe(20);
   expect(out.excadrill).toMatchObject({ id: 530, name: 'Excadrill', tier: 'rare' });
   expect(out.shinyRate).toBeCloseTo(1 / 12, 5);

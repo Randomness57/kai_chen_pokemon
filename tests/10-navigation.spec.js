@@ -14,7 +14,8 @@ test('navigation between title, game, and pokedex; mute toggles', async ({ page 
 
   await page.getByTestId('open-pokedex-btn').click();
   await expect(page.locator('[data-screen="pokedex"]')).toHaveClass(/active/);
-  await expect(page.locator('[data-testid^="dex-card-"]')).toHaveCount(22);
+  const n = await page.evaluate(() => PG.data.ROSTER.length);
+  await expect(page.locator('[data-testid^="dex-card-"]')).toHaveCount(n);
 
   await page.getByTestId('dex-back-btn').click();
   const muteBefore = await page.getByTestId('mute-btn').textContent();

@@ -3,6 +3,7 @@ const { test, expect } = require('@playwright/test');
 test('full journey: catch several, then a shiny Zygarde, reflected in the Pokedex', async ({ page }) => {
   await page.goto('/?test=1&seed=11');
   await page.evaluate(() => window.GAME.resetSave());
+  const n = await page.evaluate(() => PG.data.ROSTER.length);
   await page.getByTestId('play-btn').click();
 
   const toCatch = [25, 4, 658, 530]; // Pikachu, Charmander, Greninja, Excadrill
@@ -23,7 +24,7 @@ test('full journey: catch several, then a shiny Zygarde, reflected in the Pokede
   await page.getByTestId('find-another-btn').click();
   await page.getByTestId('back-btn').click();
   await page.getByTestId('open-pokedex-btn').click();
-  await expect(page.getByTestId('dex-progress')).toContainText('Tertangkap: 5 / 22');
+  await expect(page.getByTestId('dex-progress')).toContainText(`Tertangkap: 5 / ${n}`);
   await expect(page.getByTestId('dex-progress')).toContainText('Shiny: 1');
   await expect(page.getByTestId('dex-card-718')).toHaveClass(/shiny/);
   await expect(page.getByTestId('shiny-badge-718')).toBeVisible();
