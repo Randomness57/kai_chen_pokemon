@@ -3,7 +3,7 @@ PG.storage = (function () {
   const KEY = 'tangkap-pokemon-save-v1';
   let mem = null; // in-memory fallback when localStorage is unavailable (e.g. file://)
   function safe(fn, fallback) { try { return fn(); } catch (e) { return fallback; } }
-  function defaults() { return { caught: [], caughtShiny: [], muted: false, guessBest: 0 }; }
+  function defaults() { return { caught: [], caughtShiny: [], muted: false, guessBest: 0, animalBest: 0 }; }
   return {
     SAVE_KEY: KEY,
     load() {
