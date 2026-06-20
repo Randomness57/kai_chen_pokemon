@@ -47,15 +47,29 @@
       ringScale += ringDir * 0.02;
       if (ringScale <= 0.2) { ringScale = 0.2; ringDir = 1; }
       if (ringScale >= 1) { ringScale = 1; ringDir = -1; }
-      if (ring) ring.style.transform = 'translate(-50%,-50%) scale(' + ringScale + ')';
+      if (ring) {
+        ring.style.transform = 'translate(-50%,-50%) scale(' + ringScale + ')';
+        ring.classList.toggle('ring-hot', ringScale <= 0.3);
+      }
       ringRAF = requestAnimationFrame(step);
     })();
   }
   function stopRing() { if (ringRAF) { cancelAnimationFrame(ringRAF); ringRAF = null; } }
   function currentRingScale() { return ringScale; }
 
+  let missCount = 0;
+  const MISS_HINTS = [
+    '',
+    '🤫',
+    '🤫 Hmm...',
+    'Ada rahasianya... 👀',
+    'Perhatikan lingkarannya! 👀',
+    '💡 Lingkaran kecil = waktu terbaik!',
+  ];
+
   function startEncounter(pokemon) {
     state.current = pokemon;
+    missCount = 0;
     showScreen('game');
     tid('find-area').hidden = true;
     tid('encounter-area').hidden = false;
@@ -68,6 +82,7 @@
     tid('catch-ring').style.borderColor = PG.data.TIERS[pokemon.tier].ring;
     tid('quality-msg').textContent = '';
     tid('result-msg').textContent = '';
+    const hm = tid('hint-msg'); if (hm) hm.textContent = '';
     tid('throw-btn').hidden = false;
     tid('throw-btn').disabled = false;
     tid('find-another-btn').hidden = true;
@@ -123,7 +138,10 @@
   }
 
   function resolveMiss() {
+    missCount += 1;
     tid('result-msg').textContent = PG.data.t('miss');
+    const hm = tid('hint-msg');
+    if (hm) hm.textContent = MISS_HINTS[Math.min(missCount, MISS_HINTS.length - 1)];
     tid('throw-btn').disabled = false;
     startRing();
   }
@@ -155,25 +173,20 @@
 
   function renderGuessRound() {
     guess.answered = false;
-    const r = guess.round;
     const sprite = tid('guess-sprite');
-    sprite.src = PG.data.spritePath(r.target.id, false);
+    sprite.src = PG.data.spritePath(guess.round.target.id, false);
     sprite.classList.add('silhouette');
     sprite.alt = '';
     tid('guess-prompt').textContent = PG.data.t('guessPrompt');
     tid('guess-result').textContent = '';
     tid('guess-next-btn').hidden = true;
-    const opts = tid('guess-options');
-    opts.innerHTML = '';
-    r.options.forEach(o => {
-      const b = document.createElement('button');
-      b.className = 'btn';
-      b.textContent = o.name;
-      b.setAttribute('data-testid', 'guess-option-' + o.id);
-      if (o.id === r.target.id) b.setAttribute('data-correct', '1');
-      b.addEventListener('click', () => onGuessAnswer(o.id));
-      opts.appendChild(b);
-    });
+    tid('guess-form').hidden = false;
+    tid('guess-giveup-btn').hidden = false;
+    const input = tid('guess-input');
+    input.value = '';
+    input.disabled = false;
+    tid('guess-submit-btn').disabled = false;
+    if (!TEST) input.focus();
     renderGuessScore();
   }
 
@@ -189,22 +202,19 @@
     startGuessRound();
   }
 
-  function onGuessAnswer(id) {
-    if (guess.answered) return;
+  // Reveal the colored sprite and lock the round. `won` distinguishes a correct
+  // guess from a give-up (which still reveals the answer but breaks the streak).
+  function revealGuess(won) {
     guess.answered = true;
     const target = guess.round.target;
-    const correct = id === target.id;
-    // Reveal the colored sprite + paint the option buttons.
     const sprite = tid('guess-sprite');
     sprite.classList.remove('silhouette');
     sprite.alt = target.name;
-    tid('guess-options').querySelectorAll('.btn').forEach(b => {
-      b.disabled = true;
-      const oid = Number(b.getAttribute('data-testid').replace('guess-option-', ''));
-      if (oid === target.id) b.classList.add('correct');
-      else if (oid === id) b.classList.add('wrong');
-    });
-    if (correct) {
+    tid('guess-input').disabled = true;
+    tid('guess-submit-btn').disabled = true;
+    tid('guess-form').hidden = true;
+    tid('guess-giveup-btn').hidden = true;
+    if (won) {
       guess.score += 1;
       guess.streak += 1;
       if (guess.streak > state.guessBest) { state.guessBest = guess.streak; persist(); }
@@ -220,6 +230,24 @@
     tid('guess-next-btn').hidden = false;
   }
 
+  function onGuessSubmit() {
+    if (guess.answered) return;
+    const input = tid('guess-input');
+    if (PG.guess.isCorrect(input.value, guess.round.target.name)) {
+      revealGuess(true);
+    } else {
+      // Wrong: let the kid try again — the streak only breaks on give-up.
+      tid('guess-result').textContent = PG.data.t('guessTryAgain');
+      PG.sound.play('blip');
+      input.select();
+    }
+  }
+
+  function onGuessGiveUp() {
+    if (guess.answered) return;
+    revealGuess(false);
+  }
+
   function wire() {
     tid('subtitle').textContent = PG.data.t('subtitle');
     tid('play-btn').addEventListener('click', () => { PG.sound.play('blip'); showFind(); });
@@ -230,6 +258,8 @@
     tid('back-btn').addEventListener('click', () => showScreen('title'));
     tid('guess-mode-btn').addEventListener('click', () => { PG.sound.play('blip'); startGuess(); });
     tid('guess-back-btn').addEventListener('click', () => showScreen('title'));
+    tid('guess-form').addEventListener('submit', e => { e.preventDefault(); onGuessSubmit(); });
+    tid('guess-giveup-btn').addEventListener('click', () => { PG.sound.play('blip'); onGuessGiveUp(); });
     tid('guess-next-btn').addEventListener('click', () => { PG.sound.play('blip'); startGuessRound(); });
     tid('dex-back-btn').addEventListener('click', () => showScreen('title'));
     const mb = tid('mute-btn');
@@ -254,10 +284,8 @@
     forceCatchResult(b) { forced.result = b; },
     getState() { return { caught: [...state.caught], caughtShiny: [...state.caughtShiny], muted: state.muted, current: state.current }; },
     startGuess() { startGuess(); },
-    forceGuessRound(targetId, optionIds) {
-      const target = PG.data.get(targetId);
-      const options = optionIds.map(id => PG.data.get(id));
-      guess.round = { target, options };
+    forceGuessRound(targetId) {
+      guess.round = { target: PG.data.get(targetId) };
       showScreen('guess');
       renderGuessRound();
     },
@@ -265,7 +293,7 @@
       return {
         score: guess.score, streak: guess.streak, best: state.guessBest, answered: guess.answered,
         targetId: guess.round ? guess.round.target.id : null,
-        optionIds: guess.round ? guess.round.options.map(o => o.id) : [],
+        targetName: guess.round ? guess.round.target.name : null,
       };
     },
     resetSave() { PG.storage.clear(); state.caught.clear(); state.caughtShiny.clear(); state.guessBest = 0; if (tid('pokedex-grid')) PG.pokedex.render(tid('pokedex-grid'), tid('dex-progress'), state); },

@@ -1,6 +1,10 @@
 window.PG = window.PG || {};
 PG.data = (function () {
-  const ROSTER = [
+  // ROSTER + SHAPES live in the auto-generated src/roster-data.js (built by
+  // scripts/fetch-sprites.mjs). Fall back to a tiny inline roster only if that
+  // file is somehow absent, so the game never hard-crashes.
+  const GEN = (PG.rosterData || {});
+  const ROSTER = GEN.ROSTER || [
     { id: 25, name: 'Pikachu', tier: 'common' },
     { id: 133, name: 'Eevee', tier: 'common' },
     { id: 1, name: 'Bulbasaur', tier: 'common' },
@@ -14,23 +18,85 @@ PG.data = (function () {
     { id: 282, name: 'Gardevoir', tier: 'uncommon' },
     { id: 700, name: 'Sylveon', tier: 'uncommon' },
     { id: 448, name: 'Lucario', tier: 'uncommon' },
+    { id: 131, name: 'Lapras', tier: 'uncommon' },
+    { id: 59, name: 'Arcanine', tier: 'uncommon' },
+    { id: 65, name: 'Alakazam', tier: 'uncommon' },
+    { id: 68, name: 'Machamp', tier: 'uncommon' },
+    { id: 123, name: 'Scyther', tier: 'uncommon' },
+    { id: 196, name: 'Espeon', tier: 'uncommon' },
+    { id: 197, name: 'Umbreon', tier: 'uncommon' },
+    { id: 778, name: 'Mimikyu', tier: 'uncommon' },
+    { id: 359, name: 'Absol', tier: 'uncommon' },
+    { id: 461, name: 'Weavile', tier: 'uncommon' },
+    { id: 83, name: "Farfetch'd", tier: 'uncommon' },
+    { id: 105, name: 'Marowak', tier: 'uncommon' },
+    { id: 122, name: 'Mr. Mime', tier: 'uncommon' },
+    { id: 127, name: 'Pinsir', tier: 'uncommon' },
+    { id: 132, name: 'Ditto', tier: 'uncommon' },
+    { id: 115, name: 'Kangaskhan', tier: 'uncommon' },
+    { id: 169, name: 'Crobat', tier: 'uncommon' },
+    { id: 227, name: 'Skarmory', tier: 'uncommon' },
+    { id: 233, name: 'Porygon2', tier: 'uncommon' },
+    { id: 302, name: 'Sableye', tier: 'uncommon' },
+    { id: 303, name: 'Mawile', tier: 'uncommon' },
+    { id: 332, name: 'Cacturne', tier: 'uncommon' },
+    { id: 354, name: 'Banette', tier: 'uncommon' },
+    { id: 405, name: 'Luxray', tier: 'uncommon' },
+    { id: 426, name: 'Drifblim', tier: 'uncommon' },
+    { id: 442, name: 'Spiritomb', tier: 'uncommon' },
+    { id: 472, name: 'Gliscor', tier: 'uncommon' },
+    { id: 477, name: 'Dusknoir', tier: 'uncommon' },
+    { id: 479, name: 'Rotom', tier: 'uncommon' },
+    { id: 563, name: 'Cofagrigus', tier: 'uncommon' },
+    { id: 596, name: 'Galvantula', tier: 'uncommon' },
+    { id: 604, name: 'Eelektross', tier: 'uncommon' },
+    { id: 628, name: 'Braviary', tier: 'uncommon' },
+    { id: 663, name: 'Talonflame', tier: 'uncommon' },
+    { id: 687, name: 'Malamar', tier: 'uncommon' },
+    { id: 701, name: 'Hawlucha', tier: 'uncommon' },
+    { id: 711, name: 'Gourgeist', tier: 'uncommon' },
+    { id: 745, name: 'Lycanroc', tier: 'uncommon' },
+    { id: 768, name: 'Golisopod', tier: 'uncommon' },
+    { id: 849, name: 'Toxtricity', tier: 'uncommon' },
     { id: 6, name: 'Charizard', tier: 'rare' },
     { id: 9, name: 'Blastoise', tier: 'rare' },
     { id: 3, name: 'Venusaur', tier: 'rare' },
     { id: 658, name: 'Greninja', tier: 'rare' },
     { id: 149, name: 'Dragonite', tier: 'rare' },
     { id: 530, name: 'Excadrill', tier: 'rare' },
+    { id: 248, name: 'Tyranitar', tier: 'rare' },
+    { id: 445, name: 'Garchomp', tier: 'rare' },
+    { id: 376, name: 'Metagross', tier: 'rare' },
+    { id: 257, name: 'Blaziken', tier: 'rare' },
+    { id: 637, name: 'Volcarona', tier: 'rare' },
+    { id: 681, name: 'Aegislash', tier: 'rare' },
+    { id: 887, name: 'Dragapult', tier: 'rare' },
+    { id: 306, name: 'Aggron', tier: 'rare' },
+    { id: 464, name: 'Rhyperior', tier: 'rare' },
+    { id: 553, name: 'Krookodile', tier: 'rare' },
+    { id: 625, name: 'Bisharp', tier: 'rare' },
+    { id: 635, name: 'Hydreigon', tier: 'rare' },
+    { id: 715, name: 'Noivern', tier: 'rare' },
+    { id: 784, name: 'Kommo-o', tier: 'rare' },
+    { id: 861, name: 'Grimmsnarl', tier: 'rare' },
+    { id: 884, name: 'Duraludon', tier: 'rare' },
     { id: 150, name: 'Mewtwo', tier: 'legendary' },
     { id: 384, name: 'Rayquaza', tier: 'legendary' },
     { id: 718, name: 'Zygarde', tier: 'legendary', weight: 20 },
+    { id: 249, name: 'Lugia', tier: 'legendary' },
+    { id: 250, name: 'Ho-Oh', tier: 'legendary' },
+    { id: 487, name: 'Giratina', tier: 'legendary' },
+    { id: 888, name: 'Zacian', tier: 'legendary' },
   ];
   const TIERS = {
-    common: { base: 0.90, weight: 40, ring: '#4ade80' },
-    uncommon: { base: 0.75, weight: 20, ring: '#facc15' },
-    rare: { base: 0.55, weight: 8, ring: '#fb923c' },
-    legendary: { base: 0.25, weight: 4, ring: '#ef4444' },
+    common: { base: 0.40, weight: 40, ring: '#4ade80' },
+    uncommon: { base: 0.28, weight: 20, ring: '#facc15' },
+    rare: { base: 0.18, weight: 8, ring: '#fb923c' },
+    legendary: { base: 0.13, weight: 4, ring: '#ef4444' },
   };
   const SHINY_RATE = 1 / 12;
+  // PokeAPI "body shape" per Pokémon, baked in at build time (see scripts/fetch-sprites.mjs).
+  const SHAPES = GEN.SHAPES || {"1":"quadruped","3":"quadruped","4":"upright","6":"upright","7":"upright","9":"upright","25":"quadruped","39":"humanoid","52":"quadruped","59":"quadruped","65":"humanoid","68":"humanoid","83":"wings","94":"upright","105":"upright","115":"upright","122":"humanoid","123":"bug-wings","127":"humanoid","130":"squiggle","131":"fish","132":"ball","133":"quadruped","143":"humanoid","149":"upright","150":"upright","169":"bug-wings","196":"quadruped","197":"quadruped","227":"wings","233":"legs","248":"upright","249":"wings","250":"wings","257":"upright","282":"humanoid","302":"humanoid","303":"humanoid","306":"upright","332":"humanoid","354":"upright","359":"quadruped","376":"heads","384":"squiggle","405":"quadruped","426":"arms","442":"blob","445":"upright","448":"upright","461":"upright","464":"upright","472":"wings","477":"arms","479":"ball","487":"tentacles","530":"humanoid","553":"upright","563":"blob","596":"armor","604":"fish","625":"humanoid","628":"wings","635":"upright","637":"bug-wings","658":"humanoid","663":"wings","681":"blob","687":"blob","700":"quadruped","701":"humanoid","711":"blob","715":"wings","718":"squiggle","745":"quadruped","768":"humanoid","778":"squiggle","784":"upright","849":"upright","861":"humanoid","884":"upright","887":"upright","888":"quadruped"};
   const STRINGS = {
     title: 'Tangkap Pokémon!',
     subtitle: 'Ayo tangkap semua Pokémon!',
@@ -56,9 +122,12 @@ PG.data = (function () {
     back: 'Kembali',
     unknownName: '???',
     guessMode: 'Tebak Pokémon!',
-    guessPrompt: 'Siapa Pokémon ini?',
+    guessPrompt: 'Pokémon apa ini? Ketik namanya!',
     guessCorrect: 'Benar! Ini {name}! 🎉',
     guessWrong: 'Yah! Ini {name}.',
+    guessTryAgain: 'Belum benar, coba lagi! 🤔',
+    guessSubmit: 'Tebak!',
+    guessGiveup: 'Menyerah',
     guessNext: 'Lanjut!',
     guessScore: 'Skor: {x}  ·  Streak: {y}',
     guessBest: 'Rekor terbaik: {z}',
@@ -72,6 +141,7 @@ PG.data = (function () {
   }
   function qualityLabel(q) { return t({ perfect: 'qPerfect', great: 'qGreat', nice: 'qNice' }[q] || 'qNice'); }
   function get(id) { return byId[id]; }
+  function shapeOf(id) { return SHAPES[id] || 'unknown'; }
   function spritePath(id, shiny) { return (shiny ? 'images/shiny/' : 'images/') + id + '.png'; }
-  return { ROSTER, TIERS, SHINY_RATE, STRINGS, t, qualityLabel, get, spritePath };
+  return { ROSTER, TIERS, SHINY_RATE, SHAPES, STRINGS, t, qualityLabel, get, shapeOf, spritePath };
 })();

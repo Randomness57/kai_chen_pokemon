@@ -13,8 +13,8 @@ test('throw quality maps from ring size; chance is bonused and clamped', async (
   expect(out.small).toBe('perfect');
   expect(out.mid).toBe('great');
   expect(out.big).toBe('nice');
-  expect(out.commonNice).toBeCloseTo(0.90, 5);
-  expect(out.legendaryNice).toBeCloseTo(0.25, 5);
-  expect(out.legendaryPerfect).toBeCloseTo(0.375, 5);   // 0.25 * 1.5, within clamp
+  expect(out.commonNice).toBeCloseTo(0.40, 5);
+  expect(out.legendaryNice).toBeCloseTo(0.13, 5);
+  expect(out.legendaryPerfect).toBeCloseTo(0.26, 5);   // 0.13 * 2.0, within clamp
   expect(out.legendaryNice).toBeGreaterThanOrEqual(0.10); // never impossible
 });

@@ -215,6 +215,16 @@ h2 {
   animation: ringPulse 1.2s ease-in-out infinite;
 }
 @keyframes ringPulse { 0%,100% { opacity: .9; } 50% { opacity: .55; } }
+.ring.ring-hot {
+  box-shadow: 0 0 0 4px rgba(255,255,255,.85), 0 0 28px 8px rgba(255,255,255,.35);
+  animation: ringHot 0.22s ease-in-out infinite;
+}
+@keyframes ringHot { 0%,100% { opacity: 1; } 50% { opacity: .7; } }
+
+.hint-msg {
+  font-style: italic; font-size: 0.82rem; color: rgba(255,255,255,.55);
+  min-height: 18px; text-align: center; letter-spacing: 0.01em;
+}
 
 .quality-msg { font-family: var(--display); font-size: 22px; font-weight: 800; color: var(--logo-yellow);
   min-height: 26px; text-shadow: 0 2px 0 var(--logo-blue-dark); }
@@ -239,16 +249,19 @@ h2 {
 /* The silhouette: flatten the sprite to a solid black shape until revealed. */
 .wild-sprite.silhouette { filter: brightness(0) drop-shadow(0 10px 8px rgba(0,0,0,.28)); }
 
-.guess-options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
-  width: 100%; max-width: 460px; }
-.guess-options .btn { margin: 0; font-size: clamp(16px, 4.4vw, 20px); padding: 14px 10px;
-  color: var(--ink); background: #fff; box-shadow: 0 5px 0 rgba(0,0,0,.18); }
-.guess-options .btn:active { transform: translateY(4px); box-shadow: 0 1px 0 rgba(0,0,0,.18); }
-.guess-options .btn.correct { background: linear-gradient(180deg, #86efac, var(--grass-light));
-  color: #14310a; border-color: #fff; box-shadow: 0 5px 0 var(--grass-deep); }
-.guess-options .btn.wrong { background: linear-gradient(180deg, #fca5a5, var(--poke-red));
-  color: #fff; border-color: #fff; box-shadow: 0 5px 0 var(--poke-red-shadow); }
-.guess-options .btn:disabled { cursor: default; }
+.guess-form { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;
+  align-items: center; width: 100%; max-width: 460px; }
+.guess-input {
+  flex: 1 1 220px; min-width: 0;
+  font-family: var(--display); font-weight: 800; font-size: clamp(18px, 4.6vw, 22px);
+  text-align: center; color: var(--ink);
+  padding: 14px 16px; border: 3px solid #fff; border-radius: 999px;
+  background: #fff; box-shadow: 0 5px 0 rgba(0,0,0,.18);
+}
+.guess-input::placeholder { color: var(--ink-soft); font-weight: 700; }
+.guess-input:focus-visible { outline: 4px solid var(--logo-blue); outline-offset: 2px; }
+.guess-form .btn-big { flex: 0 0 auto; }
+.btn-giveup { background: #f1f5e8; color: var(--ink-soft); font-size: 16px; padding: 9px 20px; }
 
 /* ----------------------------- Pokédex ------------------------------ */
 .dex-progress { color: #fff; font-weight: 800; font-size: 17px; margin-bottom: 14px;

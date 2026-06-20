@@ -1,6 +1,6 @@
 window.PG = window.PG || {};
 PG.catch = {
-  QUALITY_BONUS: { perfect: 1.5, great: 1.2, nice: 1.0 },
+  QUALITY_BONUS: { perfect: 2.0, great: 1.35, nice: 1.0 },
   qualityFromRing(scale) {
     if (scale <= 0.4) return 'perfect';
     if (scale <= 0.7) return 'great';
