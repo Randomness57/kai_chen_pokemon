@@ -9,7 +9,8 @@ test('storage round-trips save data with sane defaults', async ({ page }) => {
     const loaded = PG.storage.load();
     return { empty, loaded };
   });
-  expect(out.empty).toEqual({ caught: [], caughtShiny: [], muted: false, guessBest: 0, animalBest: 0 });
-  // load() fills missing keys from defaults, so guessBest/animalBest appear even when not saved.
-  expect(out.loaded).toEqual({ caught: [25, 1], caughtShiny: [25], muted: true, guessBest: 0, animalBest: 0 });
+  const inv = { great: 50, ultra: 30, master: 15 };
+  expect(out.empty).toEqual({ caught: [], caughtShiny: [], muted: false, guessBest: 0, animalBest: 0, inventory: inv });
+  // load() fills missing keys from defaults, so guessBest/animalBest/inventory appear even when not saved.
+  expect(out.loaded).toEqual({ caught: [25, 1], caughtShiny: [25], muted: true, guessBest: 0, animalBest: 0, inventory: inv });
 });

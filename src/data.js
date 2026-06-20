@@ -98,7 +98,7 @@ PG.data = (function () {
   // tough Pokémon easier). `guaranteed` balls always catch. Order here is the
   // order they appear in the picker (weakest → strongest). `key` is the id.
   const BALLS = {
-    poke:   { key: 'poke',   nameKey: 'ballPoke',   mult: 1.0,  top: '#ee1515' },
+    poke:   { key: 'poke',   nameKey: 'ballPoke',   mult: 1.0,  top: '#ee1515', unlimited: true },
     great:  { key: 'great',  nameKey: 'ballGreat',  mult: 1.5,  top: '#2a75bb' },
     ultra:  { key: 'ultra',  nameKey: 'ballUltra',  mult: 2.2,  top: '#f6c945' },
     master: { key: 'master', nameKey: 'ballMaster', mult: 1.0,  top: '#7c3aed', guaranteed: true },

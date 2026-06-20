@@ -386,6 +386,13 @@ h2 {
 .ball-btn:focus-visible { outline: 4px solid var(--logo-blue); outline-offset: 3px; }
 .ball-btn.selected { border-color: var(--logo-yellow);
   box-shadow: 0 3px 0 rgba(0,0,0,.18), 0 0 0 4px rgba(255,203,5,.6); }
+/* Live remaining-count badge ("∞" for the unlimited Poké Ball). */
+.ball-count { font-size: 12px; font-weight: 800; color: var(--ink-soft);
+  background: #eef1e7; border-radius: 999px; padding: 1px 7px; }
+/* A depleted ball is dimmed and can't be picked. */
+.ball-btn:disabled, .ball-btn.empty { cursor: default; opacity: .42;
+  filter: grayscale(.6); box-shadow: 0 2px 0 rgba(0,0,0,.12); }
+.ball-btn:disabled:active, .ball-btn.empty:active { transform: none; }
 
 /* Mini Poké Ball icon inside each picker button (top half is the ball colour). */
 .ball-icon { position: relative; flex: none; width: 22px; height: 22px;

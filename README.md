@@ -9,14 +9,17 @@ vanilla JavaScript — no framework, no build step.
   Poké Ball to catch it. Pick from four ball types before each throw — a stronger
   ball makes the catch easier, and the **Master Ball** never misses:
 
-  | Ball | Effect |
-  | --- | --- |
-  | Poké Ball | normal catch rate |
-  | Great Ball | ×1.5 catch rate |
-  | Ultra Ball | ×2.2 catch rate |
-  | Master Ball | guaranteed catch |
+  | Ball | Effect | Starting stock |
+  | --- | --- | --- |
+  | Poké Ball | normal catch rate | unlimited |
+  | Great Ball | ×1.5 catch rate | 50 |
+  | Ultra Ball | ×2.2 catch rate | 30 |
+  | Master Ball | guaranteed catch | 15 |
 
-  Difficulty also depends on the Pokémon's rarity tier (common → legendary).
+  Each throw spends one of the chosen ball (the picker shows remaining counts and
+  saves them between sessions). Plain Poké Balls are unlimited, so you can never
+  get stuck. Difficulty also depends on the Pokémon's rarity tier
+  (common → legendary).
 
 - **Tebak Pokémon! (Guess)** — Recognise the silhouette and type its name on a
   real keyboard. The on-screen board is a guide: it pulses the next key and

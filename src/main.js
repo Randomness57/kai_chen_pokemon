@@ -11,6 +11,7 @@
     muted: saved.muted || false,
     current: null,
     ball: 'poke',
+    inventory: saved.inventory || PG.storage.defaultInventory(),
     guessBest: saved.guessBest || 0,
     animalBest: saved.animalBest || 0,
   };
@@ -28,7 +29,7 @@
   }
 
   function persist() {
-    PG.storage.save({ caught: [...state.caught], caughtShiny: [...state.caughtShiny], muted: state.muted, guessBest: state.guessBest, animalBest: state.animalBest });
+    PG.storage.save({ caught: [...state.caught], caughtShiny: [...state.caughtShiny], muted: state.muted, inventory: Object.assign({}, state.inventory), guessBest: state.guessBest, animalBest: state.animalBest });
   }
 
   function openPokedex() {
@@ -87,7 +88,15 @@
   // --- POKÉ BALLS ---
   // The kid picks a ball before each throw. A stronger ball multiplies the catch
   // chance (see PG.catch.chance), so a tough Pokémon becomes catchable — and the
-  // Master Ball never fails. The picker is built once, data-driven from BALLS.
+  // Master Ball never fails. Each throw spends one ball from the inventory; plain
+  // Poké Balls are unlimited so he can never get stuck. The picker is built once,
+  // data-driven from BALLS, then refreshed with live counts.
+  function ballCount(key) {
+    if (PG.data.BALLS[key] && PG.data.BALLS[key].unlimited) return Infinity;
+    return state.inventory[key] || 0;
+  }
+  function ballAvailable(key) { return ballCount(key) > 0; }
+
   function buildBallTray() {
     const tray = tid('ball-tray');
     if (!tray || tray.childElementCount) return;
@@ -102,15 +111,32 @@
       const label = document.createElement('span');
       label.className = 'ball-name';
       label.textContent = PG.data.ballName(key);
+      const count = document.createElement('span');
+      count.className = 'ball-count';
+      count.setAttribute('data-testid', 'ball-count-' + key);
       btn.appendChild(icon);
       btn.appendChild(label);
-      btn.addEventListener('click', () => { PG.sound.play('blip'); selectBall(key); });
+      btn.appendChild(count);
+      btn.addEventListener('click', () => { if (ballAvailable(key)) { PG.sound.play('blip'); selectBall(key); } });
       tray.appendChild(btn);
     });
   }
 
+  // Update the count badges + disabled state of each ball button.
+  function refreshBallTray() {
+    const tray = tid('ball-tray');
+    if (!tray) return;
+    PG.data.BALL_ORDER.forEach(key => {
+      const n = ballCount(key);
+      const badge = tid('ball-count-' + key);
+      if (badge) badge.textContent = n === Infinity ? '∞' : ('×' + n);
+      const btn = tray.querySelector('[data-ball="' + key + '"]');
+      if (btn) { const empty = n <= 0; btn.disabled = empty; btn.classList.toggle('empty', empty); }
+    });
+  }
+
   function selectBall(key) {
-    if (throwing || !PG.data.BALLS[key]) return;
+    if (throwing || !PG.data.BALLS[key] || !ballAvailable(key)) return;
     state.ball = key;
     const tray = tid('ball-tray');
     if (tray) tray.querySelectorAll('.ball-btn').forEach(b => b.classList.toggle('selected', b.getAttribute('data-ball') === key));
@@ -120,6 +146,17 @@
     if (btn) btn.textContent = PG.data.t('throwNamed', { ball: PG.data.ballName(key) });
   }
 
+  // Spend one of the thrown ball. Unlimited balls (Poké Ball) are never deducted.
+  // (Falling back to the Poké Ball when one runs out is handled once the throw
+  // finishes — see resolveMiss / the next requestThrow — since selectBall is
+  // intentionally inert while a throw is animating.)
+  function consumeBall(key) {
+    if (PG.data.BALLS[key] && PG.data.BALLS[key].unlimited) return;
+    state.inventory[key] = Math.max(0, (state.inventory[key] || 0) - 1);
+    persist();
+    refreshBallTray();
+  }
+
   function startEncounter(pokemon) {
     state.current = pokemon;
     missCount = 0;
@@ -127,6 +164,7 @@
     tid('find-area').hidden = true;
     tid('encounter-area').hidden = false;
     buildBallTray();
+    refreshBallTray();
     selectBall('poke'); // every encounter starts on the basic ball
     tid('legendary-alert').hidden = pokemon.tier !== 'legendary';
     tid('shiny-alert').hidden = !pokemon.shiny;
@@ -167,6 +205,7 @@
     if (!state.current || throwing) return;
     const btn = tid('throw-btn');
     if (btn && btn.disabled) return;
+    if (!ballAvailable(state.ball)) selectBall('poke'); // never throw an empty ball
     const quality = forced.quality != null ? forced.quality : PG.catch.qualityFromRing(currentRingScale());
     forced.quality = null;
     beginThrow(quality);
@@ -174,6 +213,8 @@
 
   async function beginThrow(quality) {
     throwing = true;
+    const thrownBall = state.ball;
+    consumeBall(thrownBall); // spend the ball as it leaves his hand
     let skip = false;
     let skipResolve;
     const skipPromise = new Promise(r => { skipResolve = r; });
@@ -213,7 +254,7 @@
 
     document.removeEventListener('pointerdown', skipOnce);
 
-    const chance = PG.catch.chance(state.current.tier, quality, state.ball);
+    const chance = PG.catch.chance(state.current.tier, quality, thrownBall);
     const caught = forced.result != null ? forced.result : rng.chance(chance);
     forced.result = null;
     throwing = false;
@@ -254,6 +295,7 @@
     tid('result-msg').textContent = PG.data.t('miss');
     const hm = tid('hint-msg');
     if (hm) hm.textContent = MISS_HINTS[Math.min(missCount, MISS_HINTS.length - 1)];
+    if (!ballAvailable(state.ball)) selectBall('poke'); // ran out mid-encounter
     tid('throw-btn').disabled = false;
     startRing();
   }
@@ -598,8 +640,9 @@
     forceShiny(b) { forced.shiny = b; },
     forceThrowQuality(q) { forced.quality = q; },
     forceCatchResult(b) { forced.result = b; },
-    getState() { return { caught: [...state.caught], caughtShiny: [...state.caughtShiny], muted: state.muted, current: state.current, ball: state.ball }; },
+    getState() { return { caught: [...state.caught], caughtShiny: [...state.caughtShiny], muted: state.muted, current: state.current, ball: state.ball, inventory: Object.assign({}, state.inventory) }; },
     selectBall(key) { selectBall(key); },
+    setInventory(inv) { Object.assign(state.inventory, inv); persist(); refreshBallTray(); if (!ballAvailable(state.ball)) selectBall('poke'); },
     startGuess() { startGuess(); },
     forceGuessRound(targetId) {
       showScreen('guess');
@@ -628,7 +671,7 @@
         targetName: r ? r.target.name : null,
       };
     },
-    resetSave() { PG.storage.clear(); state.caught.clear(); state.caughtShiny.clear(); state.guessBest = 0; state.animalBest = 0; if (tid('pokedex-grid')) PG.pokedex.render(tid('pokedex-grid'), tid('dex-progress'), state); },
+    resetSave() { PG.storage.clear(); state.caught.clear(); state.caughtShiny.clear(); state.guessBest = 0; state.animalBest = 0; state.inventory = PG.storage.defaultInventory(); refreshBallTray(); if (tid('pokedex-grid')) PG.pokedex.render(tid('pokedex-grid'), tid('dex-progress'), state); },
   };
 
   // expose for sibling functions added in later tasks
