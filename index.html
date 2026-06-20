@@ -30,6 +30,7 @@
         <div data-testid="stage" class="stage">
           <img data-testid="wild-sprite" class="wild-sprite" alt="" />
           <div data-testid="catch-ring" class="ring"></div>
+          <div data-testid="poke-ball" class="poke-ball" role="button" aria-label="Lempar Poké Ball"></div>
         </div>
         <div data-testid="quality-msg" class="quality-msg"></div>
         <div data-testid="result-msg" class="result-msg"></div>
@@ -48,11 +49,8 @@
       </div>
       <div data-testid="guess-result" class="result-msg"></div>
       <div data-testid="guess-typed" class="guess-typed" aria-live="polite"></div>
-      <div data-testid="type-keyboard" class="type-keyboard"></div>
-      <div class="type-actions">
-        <button data-testid="guess-submit-btn" class="btn btn-big">Tebak!</button>
-        <button data-testid="guess-skip-btn" class="btn btn-giveup">Lewati</button>
-      </div>
+      <div data-testid="type-keyboard" class="type-keyboard" aria-hidden="true"></div>
+      <button data-testid="guess-skip-btn" class="btn btn-giveup">Lewati</button>
       <button data-testid="guess-next-btn" class="btn btn-big" hidden>Lanjut!</button>
     </section>
 

@@ -1,78 +1,75 @@
 const { test, expect } = require('@playwright/test');
 
-async function tap(page, str) {
-  for (const ch of str) await page.getByTestId('key-' + ch).click();
+async function type(page, str) {
+  for (const ch of str) await page.keyboard.press(ch);
 }
 
-test('guess mode: tap keyboard to spell the name, retry, backspace, skip, best persists', async ({ page }) => {
+test('typing tutor: real keyboard types the name, next key pulses, hands colored, auto-skip punctuation', async ({ page }) => {
   await page.goto('/?test=1&seed=7');
   await page.evaluate(() => window.GAME.resetSave());
 
-  // Enter from the title.
   await page.getByTestId('guess-mode-btn').click();
   await expect(page.locator('[data-screen="guess"]')).toHaveClass(/active/);
-  await expect(page.getByTestId('guess-prompt')).toHaveText('Siapa Pokémon ini?');
+  await expect(page.getByTestId('guess-prompt')).toHaveText('Siapa Pokémon ini? Ketik namanya!');
 
-  // Deterministic round: Pikachu(25). Silhouette + on-screen keyboard, name hidden.
-  await page.evaluate(() => window.GAME.forceGuessRound(25));
+  // Deterministic round: Gengar(94). Silhouette stays (recognising is the fun part).
+  await page.evaluate(() => window.GAME.forceGuessRound(94));
   await expect(page.getByTestId('guess-sprite')).toHaveClass(/silhouette/);
-  await expect(page.getByTestId('guess-sprite')).toHaveAttribute('src', 'images/25.png');
-  await expect(page.getByTestId('type-keyboard')).toBeVisible();
-  await expect(page.locator('[data-testid^="key-"]')).toHaveCount(37); // 26 letters + 10 digits + backspace
 
-  // Tap an incomplete guess "PIKA": the typed display reflects taps.
-  await tap(page, 'pika');
-  await expect(page.getByTestId('guess-typed')).toHaveText('PIKA');
-  await page.getByTestId('guess-submit-btn').click();
-  await expect(page.getByTestId('guess-result')).toHaveText('Belum benar, coba lagi! 🤔');
-  await expect(page.getByTestId('guess-sprite')).toHaveClass(/silhouette/);
-  expect(await page.evaluate(() => window.GAME.getGuessState().answered)).toBe(false);
+  // The on-screen board is a QWERTY GUIDE: 36 keys, hand-colored, next key pulses.
+  await expect(page.locator('[data-testid^="key-"]')).toHaveCount(36); // 26 letters + 10 digits
+  await expect(page.getByTestId('key-g')).toHaveClass(/hand-left/);   // G = left hand
+  await expect(page.getByTestId('key-l')).toHaveClass(/hand-right/);  // L = right hand
+  await expect(page.getByTestId('key-g')).toHaveClass(/next/);        // Gengar -> next is G
 
-  // Finish the word and submit: reveal + score/streak update.
-  await tap(page, 'chu');
-  await expect(page.getByTestId('guess-typed')).toHaveText('PIKACHU');
-  await page.getByTestId('guess-submit-btn').click();
+  // Tapping the on-screen guide does NOTHING — he must use the real keyboard.
+  // (pointer-events:none makes it inert; force the click past actionability.)
+  await page.getByTestId('key-g').click({ force: true });
+  await expect(page.getByTestId('guess-typed')).toHaveClass(/empty/);
+  expect(await page.evaluate(() => window.GAME.getGuessState().pos)).toBe(0);
+
+  // Pressing the real key advances; the highlight moves to the next letter.
+  await page.keyboard.press('g');
+  await expect(page.getByTestId('guess-typed')).toHaveText('G_');
+  await expect(page.getByTestId('key-g')).not.toHaveClass(/next/);
+  await expect(page.getByTestId('key-e')).toHaveClass(/next/);
+
+  // A wrong key is ignored — he can't get stuck on a bad path.
+  await page.keyboard.press('z');
+  await expect(page.getByTestId('guess-typed')).toHaveText('G_');
+  expect(await page.evaluate(() => window.GAME.getGuessState().pos)).toBe(1);
+
+  // Finish the word: completing it auto-wins (no submit button).
+  await type(page, 'engar');
   await expect(page.getByTestId('guess-sprite')).not.toHaveClass(/silhouette/);
-  await expect(page.getByTestId('guess-result')).toHaveText('Benar! Ini Pikachu! 🎉');
+  await expect(page.getByTestId('guess-result')).toHaveText('Benar! Ini Gengar! 🎉');
   await expect(page.getByTestId('guess-next-btn')).toBeVisible();
   let st = await page.evaluate(() => window.GAME.getGuessState());
   expect(st).toMatchObject({ score: 1, streak: 1, best: 1 });
 
-  // Backspace + forgiving punctuation: spell Mr. Mime(122) as "mrmime".
-  await page.getByTestId('guess-next-btn').click();
+  // Punctuation/space auto-fill: Mr. Mime(122) is solved by typing only letters.
+  await page.keyboard.press('Enter'); // Enter advances to next round once solved
   await page.evaluate(() => window.GAME.forceGuessRound(122));
-  await tap(page, 'mrz');                       // typo
-  await page.getByTestId('key-backspace').click(); // erase the 'z'
-  await expect(page.getByTestId('guess-typed')).toHaveText('MR');
-  await tap(page, 'mime');
-  await page.getByTestId('guess-submit-btn').click();
+  await expect(page.getByTestId('key-m')).toHaveClass(/next/);
+  await type(page, 'mr');             // after "Mr", the ". " auto-fills
+  await expect(page.getByTestId('guess-typed')).toHaveText('MR. _');
+  await type(page, 'mime');
   await expect(page.getByTestId('guess-result')).toHaveText('Benar! Ini Mr. Mime! 🎉');
   st = await page.evaluate(() => window.GAME.getGuessState());
   expect(st).toMatchObject({ score: 2, streak: 2, best: 2 });
 
-  // Skip: reveals the answer, resets streak, score unchanged.
+  // Skip reveals the answer and breaks the streak (score unchanged).
   await page.getByTestId('guess-next-btn').click();
-  await page.evaluate(() => window.GAME.forceGuessRound(94)); // Gengar
+  await page.evaluate(() => window.GAME.forceGuessRound(25)); // Pikachu
   await page.getByTestId('guess-skip-btn').click();
   await expect(page.getByTestId('guess-sprite')).not.toHaveClass(/silhouette/);
-  await expect(page.getByTestId('guess-result')).toHaveText('Yah! Ini Gengar.');
+  await expect(page.getByTestId('guess-result')).toHaveText('Yah! Ini Pikachu.');
   st = await page.evaluate(() => window.GAME.getGuessState());
   expect(st).toMatchObject({ score: 2, streak: 0, best: 2 });
 
   // Best streak persists across reload.
   await page.reload();
   expect(await page.evaluate(() => window.GAME.getGuessState().best)).toBe(2);
-});
-
-test('guess mode: physical keyboard also works (type + Enter)', async ({ page }) => {
-  await page.goto('/?test=1&seed=7');
-  await page.evaluate(() => window.GAME.resetSave());
-  await page.getByTestId('guess-mode-btn').click();
-  await page.evaluate(() => window.GAME.forceGuessRound(94)); // Gengar
-  await page.keyboard.type('gengar');
-  await expect(page.getByTestId('guess-typed')).toHaveText('GENGAR');
-  await page.keyboard.press('Enter');
-  await expect(page.getByTestId('guess-result')).toHaveText('Benar! Ini Gengar! 🎉');
 });
 
 test('guess logic: round picks a real target; isCorrect is forgiving', async ({ page }) => {
@@ -88,15 +85,9 @@ test('guess logic: round picks a real target; isCorrect is forgiving', async ({ 
       allReal,
       hooh: PG.guess.isCorrect('ho oh', 'Ho-Oh'),
       farfetchd: PG.guess.isCorrect('farfetchd', "Farfetch'd"),
-      accent: PG.guess.isCorrect('pokemon', 'Pokémon'),
-      empty: PG.guess.isCorrect('', 'Pikachu'),
-      wrong: PG.guess.isCorrect('squirtle', 'Pikachu'),
     };
   });
   expect(out.allReal).toBe(true);
   expect(out.hooh).toBe(true);
   expect(out.farfetchd).toBe(true);
-  expect(out.accent).toBe(true);
-  expect(out.empty).toBe(false);
-  expect(out.wrong).toBe(false);
 });

@@ -13,7 +13,7 @@
     guessBest: saved.guessBest || 0,
   };
   // Runtime-only state for the guess mode (not persisted beyond guessBest).
-  const guess = { round: null, score: 0, streak: 0, answered: false, typed: '' };
+  const guess = { round: null, score: 0, streak: 0, answered: false, pos: 0 };
   const forced = { shiny: null, quality: null, result: null };
 
   function tid(id) { return document.querySelector('[data-testid="' + id + '"]'); }
@@ -57,6 +57,23 @@
   function stopRing() { if (ringRAF) { cancelAnimationFrame(ringRAF); ringRAF = null; } }
   function currentRingScale() { return ringScale; }
 
+  function resetBall() {
+    const ball = tid('poke-ball');
+    const sprite = tid('wild-sprite');
+    if (ball) {
+      ball.classList.remove('throwing', 'wobble', 'open', 'grabbing');
+      ball.style.transform = '';
+      ball.style.removeProperty('--arc-dy');
+    }
+    if (sprite) sprite.classList.remove('captured', 'escape');
+  }
+
+  function snapBack() {
+    const ball = tid('poke-ball');
+    if (!ball) return;
+    ball.style.transform = '';
+  }
+
   let missCount = 0;
   const MISS_HINTS = [
     '',
@@ -86,6 +103,7 @@
     tid('throw-btn').hidden = false;
     tid('throw-btn').disabled = false;
     tid('find-another-btn').hidden = true;
+    resetBall();
     startRing();
   }
 
@@ -95,6 +113,7 @@
     tid('find-area').hidden = false;
     tid('encounter-area').hidden = true;
     stopRing();
+    resetBall();
     state.current = null;
   }
   function spawn() {
@@ -104,22 +123,77 @@
   }
 
   // --- CATCH ---
-  async function onThrow() {
-    if (!state.current) return;
+  let throwing = false;
+
+  function requestThrow(source) {
+    if (!state.current || throwing) return;
     const btn = tid('throw-btn');
-    if (btn.disabled) return;
-    btn.disabled = true;
-    stopRing();
+    if (btn && btn.disabled) return;
     const quality = forced.quality != null ? forced.quality : PG.catch.qualityFromRing(currentRingScale());
     forced.quality = null;
+    beginThrow(quality);
+  }
+
+  async function beginThrow(quality) {
+    throwing = true;
+    let skip = false;
+    let skipResolve;
+    const skipPromise = new Promise(r => { skipResolve = r; });
+    const skipOnce = () => { skip = true; skipResolve(); };
+    document.addEventListener('pointerdown', skipOnce, { once: true });
+    const sw = ms => (skip || TEST) ? Promise.resolve() : Promise.race([wait(ms), skipPromise]);
+
+    const ball = tid('poke-ball');
+    const sprite = tid('wild-sprite');
+    const btn = tid('throw-btn');
+    if (btn) btn.disabled = true;
+    stopRing();
     tid('quality-msg').textContent = PG.data.qualityLabel(quality);
     PG.sound.play('throw');
-    await wait(400);
-    for (let i = 0; i < 3; i++) { PG.sound.play('tick'); await wait(220); }
+
+    // Compute arc offset so the ball travels to the sprite center.
+    if (ball && sprite) {
+      const bBox = ball.getBoundingClientRect();
+      const sBox = sprite.getBoundingClientRect();
+      const dy = (sBox.top + sBox.height / 2) - (bBox.top + bBox.height / 2);
+      ball.style.setProperty('--arc-dy', dy + 'px');
+    }
+
+    // Phase 1: Arc
+    if (ball) ball.classList.add('throwing');
+    await sw(300);
+
+    // Phase 2: Suck-in
+    if (sprite) { sprite.classList.remove('is-shiny'); sprite.classList.add('captured'); }
+    if (ball) ball.classList.remove('throwing');
+    await sw(350);
+
+    // Phase 3: Wobble x3
+    if (ball) ball.classList.add('wobble');
+    for (let i = 0; i < 3; i++) { PG.sound.play('tick'); await sw(220); }
+    if (ball) ball.classList.remove('wobble');
+
+    document.removeEventListener('pointerdown', skipOnce);
+
     const chance = PG.catch.chance(state.current.tier, quality);
     const caught = forced.result != null ? forced.result : rng.chance(chance);
     forced.result = null;
-    if (caught) resolveCaught(); else resolveMiss();
+    throwing = false;
+
+    if (caught) {
+      resolveCaught();
+    } else {
+      if (ball) ball.classList.add('open');
+      if (sprite) { sprite.classList.remove('captured'); sprite.classList.add('escape'); }
+      if (state.current && state.current.shiny && sprite) {
+        await sw(350);
+        sprite.classList.add('is-shiny');
+      } else {
+        await sw(350);
+      }
+      if (ball) ball.classList.remove('open');
+      resolveMiss();
+    }
   }
 
   function resolveCaught() {
@@ -164,54 +238,59 @@
     setTimeout(() => { layer.innerHTML = ''; layer.removeAttribute('data-active'); }, TEST ? 50 : 1600);
   }
 
-  // --- GUESS MODE (Who's That Pokémon? — tap-to-type) ---
-  // The name stays hidden (recognising it is the fun part); an on-screen
-  // keyboard lets a kid who can't touch-type build the answer one finger-tap
-  // at a time. Letters are laid out A→Z so they're easy to find.
-  const KEY_ROWS = ['abcdefg', 'hijklmn', 'opqrstu', 'vwxyz', '0123456789'];
+  // --- GUESS MODE (Who's That Pokémon? — typing tutor) ---
+  // The kid recognises the silhouette (the fun part) and TYPES the name on a
+  // real keyboard. The on-screen board is a guide only — it pulses the next key
+  // to press and colours each key by hand (left = blue, right = orange) so he
+  // learns key positions and two-handed typing. Tapping it does nothing.
+  const KB_ROWS = ['1234567890', 'qwertyuiop', 'asdfghjkl', 'zxcvbnm'];
+  const LEFT_HAND = new Set('12345qwertasdfgzxcvb');
+  function handClass(ch) { return LEFT_HAND.has(ch) ? 'hand-left' : 'hand-right'; }
+  // Which characters the player actually types (letters/digits); spaces and
+  // punctuation in a name auto-fill so he only ever presses real keys.
+  function keyOf(ch) { return /[a-z0-9]/i.test(ch) ? ch.toLowerCase() : null; }
 
   function buildKeyboard() {
     const kb = tid('type-keyboard');
     if (kb.childElementCount) return; // build once
-    const addKey = (row, ch, label, cls, fn) => {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'key' + (cls ? ' ' + cls : '');
-      b.textContent = label;
-      b.setAttribute('data-testid', 'key-' + ch);
-      b.addEventListener('click', fn);
-      row.appendChild(b);
-    };
-    KEY_ROWS.forEach(chars => {
+    KB_ROWS.forEach(chars => {
       const row = document.createElement('div');
       row.className = 'key-row';
-      for (const ch of chars) addKey(row, ch, ch.toUpperCase(), null, () => onKeyTap(ch));
+      for (const ch of chars) {
+        const k = document.createElement('div');
+        k.className = 'key ' + handClass(ch);
+        k.textContent = ch.toUpperCase();
+        k.setAttribute('data-testid', 'key-' + ch);
+        row.appendChild(k);
+      }
       kb.appendChild(row);
     });
-    const last = document.createElement('div');
-    last.className = 'key-row';
-    addKey(last, 'backspace', '⌫ Hapus', 'key-wide', onBackspace);
-    kb.appendChild(last);
+  }
+
+  function targetName() { return guess.round.target.name; }
+
+  // Advance past any non-typed characters (spaces, '.', '-', "'") so `pos`
+  // always sits on the next key the player must press (or past the end).
+  function skipAuto() {
+    const name = targetName();
+    while (guess.pos < name.length && keyOf(name[guess.pos]) === null) guess.pos++;
   }
 
   function renderTyped() {
     const el = tid('guess-typed');
-    if (guess.typed) { el.textContent = guess.typed.toUpperCase(); el.classList.remove('empty'); }
-    else { el.textContent = PG.data.t('guessTypeHint'); el.classList.add('empty'); }
+    if (guess.pos <= 0) { el.textContent = PG.data.t('guessTypeHint'); el.classList.add('empty'); return; }
+    el.classList.remove('empty');
+    el.textContent = targetName().slice(0, guess.pos).toUpperCase() + (guess.answered ? '' : '_');
   }
 
-  function onKeyTap(ch) {
-    if (guess.answered || guess.typed.length >= 16) return;
-    guess.typed += ch;
-    PG.sound.play('blip');
-    if (tid('guess-result').textContent) tid('guess-result').textContent = '';
-    renderTyped();
-  }
-  function onBackspace() {
-    if (guess.answered || !guess.typed) return;
-    guess.typed = guess.typed.slice(0, -1);
-    PG.sound.play('tick');
-    renderTyped();
+  function highlightNextKey() {
+    const kb = tid('type-keyboard');
+    kb.querySelectorAll('.key.next').forEach(k => k.classList.remove('next'));
+    const name = targetName();
+    if (guess.answered || guess.pos >= name.length) return;
+    const k = keyOf(name[guess.pos]);
+    const el = k && kb.querySelector('[data-testid="key-' + k + '"]');
+    if (el) el.classList.add('next');
   }
 
   function renderGuessScore() {
@@ -222,12 +301,12 @@
 
   function setTypingVisible(on) {
     tid('type-keyboard').hidden = !on;
-    document.querySelector('.type-actions').hidden = !on;
+    tid('guess-skip-btn').hidden = !on;
   }
 
   function renderGuessRound() {
     guess.answered = false;
-    guess.typed = '';
+    guess.pos = 0;
     buildKeyboard();
     const sprite = tid('guess-sprite');
     sprite.src = PG.data.spritePath(guess.round.target.id, false);
@@ -237,7 +316,9 @@
     tid('guess-result').textContent = '';
     tid('guess-next-btn').hidden = true;
     setTypingVisible(true);
+    skipAuto();
     renderTyped();
+    highlightNextKey();
     renderGuessScore();
   }
 
@@ -253,8 +334,8 @@
     startGuessRound();
   }
 
-  // Reveal the colored sprite and lock the round. `won` distinguishes a correct
-  // guess from a skip (which still reveals the answer but breaks the streak).
+  // Reveal the colored sprite and lock the round. `won` = typed the whole name;
+  // a skip still reveals the answer but breaks the streak.
   function revealGuess(won) {
     guess.answered = true;
     const target = guess.round.target;
@@ -262,6 +343,7 @@
     sprite.classList.remove('silhouette');
     sprite.alt = target.name;
     setTypingVisible(false);
+    highlightNextKey();
     if (won) {
       guess.score += 1;
       guess.streak += 1;
@@ -274,19 +356,24 @@
       tid('guess-result').textContent = PG.data.t('guessWrong', { name: target.name });
       PG.sound.play('throw');
     }
+    renderTyped();
     renderGuessScore();
     tid('guess-next-btn').hidden = false;
   }
 
-  function onGuessSubmit() {
+  // One keystroke. Only the correct next key advances (so he can never get stuck
+  // on a wrong path); other keys are gently ignored. Completing the name wins.
+  function pressKey(key) {
     if (guess.answered) return;
-    if (PG.guess.isCorrect(guess.typed, guess.round.target.name)) {
-      revealGuess(true);
-    } else {
-      // Wrong: let the kid keep trying — the streak only breaks on skip.
-      tid('guess-result').textContent = PG.data.t('guessTryAgain');
-      PG.sound.play('throw');
-    }
+    const name = targetName();
+    if (guess.pos >= name.length) return;
+    if (key !== keyOf(name[guess.pos])) { PG.sound.play('tick'); return; }
+    guess.pos++;
+    skipAuto();
+    if (guess.pos >= name.length) { revealGuess(true); return; }
+    PG.sound.play('blip');
+    renderTyped();
+    highlightNextKey();
   }
 
   function onGuessSkip() {
@@ -294,13 +381,12 @@
     revealGuess(false);
   }
 
-  // Physical keyboard works too (for whoever can reach it), but is never required.
+  // The kid types on the real keyboard. Enter advances to the next round once solved.
   function onGuessKeydown(e) {
     const active = document.querySelector('[data-screen="guess"]');
     if (!active || !active.classList.contains('active')) return;
-    if (e.key === 'Enter') { e.preventDefault(); onGuessSubmit(); }
-    else if (e.key === 'Backspace') { e.preventDefault(); onBackspace(); }
-    else if (/^[a-z0-9]$/i.test(e.key)) { onKeyTap(e.key.toLowerCase()); }
+    if (e.key === 'Enter') { if (guess.answered) { PG.sound.play('blip'); startGuessRound(); } return; }
+    if (/^[a-z0-9]$/i.test(e.key)) { e.preventDefault(); pressKey(e.key.toLowerCase()); }
   }
 
   function wire() {
@@ -308,26 +394,55 @@
     tid('play-btn').addEventListener('click', () => { PG.sound.play('blip'); showFind(); });
     tid('open-pokedex-btn').addEventListener('click', () => { PG.sound.play('blip'); openPokedex(); });
     tid('find-btn').addEventListener('click', () => { PG.sound.play('blip'); spawn(); });
-    tid('throw-btn').addEventListener('click', onThrow);
+    tid('throw-btn').addEventListener('click', () => requestThrow('button'));
     tid('find-another-btn').addEventListener('click', () => { PG.sound.play('blip'); showFind(); });
     tid('back-btn').addEventListener('click', () => showScreen('title'));
     tid('guess-mode-btn').addEventListener('click', () => { PG.sound.play('blip'); startGuess(); });
     tid('guess-back-btn').addEventListener('click', () => showScreen('title'));
-    tid('guess-submit-btn').addEventListener('click', () => onGuessSubmit());
     tid('guess-skip-btn').addEventListener('click', () => { PG.sound.play('blip'); onGuessSkip(); });
     tid('guess-next-btn').addEventListener('click', () => { PG.sound.play('blip'); startGuessRound(); });
     document.addEventListener('keydown', onGuessKeydown);
     tid('dex-back-btn').addEventListener('click', () => showScreen('title'));
     const mb = tid('mute-btn');
     if (mb) mb.addEventListener('click', () => { state.muted = PG.sound.toggleMute(); updateMuteBtn(); });
-    const stage = tid('stage');
-    if (stage) {
-      let startY = null;
-      stage.addEventListener('pointerdown', e => { startY = e.clientY; });
-      stage.addEventListener('pointerup', e => {
-        const tb = tid('throw-btn');
-        if (startY != null && (startY - e.clientY) > 30 && state.current && !tb.disabled && !tb.hidden) onThrow();
-        startY = null;
+    const ballEl = tid('poke-ball');
+    if (ballEl) {
+      const drag = { active: false, startX: 0, startY: 0 };
+      const FLICK_THRESHOLD = 24;
+
+      ballEl.addEventListener('pointerdown', e => {
+        if (throwing || !state.current) return;
+        drag.active = true;
+        drag.startX = e.clientX;
+        drag.startY = e.clientY;
+        ballEl.classList.add('grabbing');
+        ballEl.setPointerCapture(e.pointerId);
+      });
+
+      ballEl.addEventListener('pointermove', e => {
+        if (!drag.active) return;
+        const dx = e.clientX - drag.startX;
+        const dy = e.clientY - drag.startY;
+        ballEl.style.transform = 'translateX(calc(-50% + ' + dx + 'px)) translateY(' + dy + 'px)';
+      });
+
+      ballEl.addEventListener('pointerup', e => {
+        if (!drag.active) return;
+        drag.active = false;
+        ballEl.classList.remove('grabbing');
+        const upDelta = drag.startY - e.clientY;
+        if (upDelta >= FLICK_THRESHOLD && state.current && !throwing) {
+          forced.quality = forced.quality != null ? forced.quality : PG.catch.qualityFromRing(currentRingScale());
+          requestThrow('flick');
+        } else {
+          snapBack();
+        }
+      });
+
+      ballEl.addEventListener('pointercancel', () => {
+        drag.active = false;
+        ballEl.classList.remove('grabbing');
+        snapBack();
       });
     }
     updateMuteBtn();
@@ -348,6 +463,7 @@
     getGuessState() {
       return {
         score: guess.score, streak: guess.streak, best: state.guessBest, answered: guess.answered,
+        pos: guess.pos,
         targetId: guess.round ? guess.round.target.id : null,
         targetName: guess.round ? guess.round.target.name : null,
       };
