@@ -47,13 +47,12 @@
         <img data-testid="guess-sprite" class="wild-sprite silhouette" alt="" />
       </div>
       <div data-testid="guess-result" class="result-msg"></div>
-      <form data-testid="guess-form" class="guess-form" autocomplete="off">
-        <input data-testid="guess-input" class="guess-input" type="text"
-               placeholder="Ketik nama Pokémon…" aria-label="nama Pokémon"
-               autocapitalize="off" autocorrect="off" spellcheck="false" />
-        <button data-testid="guess-submit-btn" class="btn btn-big" type="submit">Tebak!</button>
-      </form>
-      <button data-testid="guess-giveup-btn" class="btn btn-giveup">Menyerah</button>
+      <div data-testid="guess-typed" class="guess-typed" aria-live="polite"></div>
+      <div data-testid="type-keyboard" class="type-keyboard"></div>
+      <div class="type-actions">
+        <button data-testid="guess-submit-btn" class="btn btn-big">Tebak!</button>
+        <button data-testid="guess-skip-btn" class="btn btn-giveup">Lewati</button>
+      </div>
       <button data-testid="guess-next-btn" class="btn btn-big" hidden>Lanjut!</button>
     </section>
 

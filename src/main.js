@@ -13,7 +13,7 @@
     guessBest: saved.guessBest || 0,
   };
   // Runtime-only state for the guess mode (not persisted beyond guessBest).
-  const guess = { round: null, score: 0, streak: 0, answered: false };
+  const guess = { round: null, score: 0, streak: 0, answered: false, typed: '' };
   const forced = { shiny: null, quality: null, result: null };
 
   function tid(id) { return document.querySelector('[data-testid="' + id + '"]'); }
@@ -164,15 +164,71 @@
     setTimeout(() => { layer.innerHTML = ''; layer.removeAttribute('data-active'); }, TEST ? 50 : 1600);
   }
 
-  // --- GUESS MODE (Who's That Pokémon?) ---
+  // --- GUESS MODE (Who's That Pokémon? — tap-to-type) ---
+  // The name stays hidden (recognising it is the fun part); an on-screen
+  // keyboard lets a kid who can't touch-type build the answer one finger-tap
+  // at a time. Letters are laid out A→Z so they're easy to find.
+  const KEY_ROWS = ['abcdefg', 'hijklmn', 'opqrstu', 'vwxyz', '0123456789'];
+
+  function buildKeyboard() {
+    const kb = tid('type-keyboard');
+    if (kb.childElementCount) return; // build once
+    const addKey = (row, ch, label, cls, fn) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'key' + (cls ? ' ' + cls : '');
+      b.textContent = label;
+      b.setAttribute('data-testid', 'key-' + ch);
+      b.addEventListener('click', fn);
+      row.appendChild(b);
+    };
+    KEY_ROWS.forEach(chars => {
+      const row = document.createElement('div');
+      row.className = 'key-row';
+      for (const ch of chars) addKey(row, ch, ch.toUpperCase(), null, () => onKeyTap(ch));
+      kb.appendChild(row);
+    });
+    const last = document.createElement('div');
+    last.className = 'key-row';
+    addKey(last, 'backspace', '⌫ Hapus', 'key-wide', onBackspace);
+    kb.appendChild(last);
+  }
+
+  function renderTyped() {
+    const el = tid('guess-typed');
+    if (guess.typed) { el.textContent = guess.typed.toUpperCase(); el.classList.remove('empty'); }
+    else { el.textContent = PG.data.t('guessTypeHint'); el.classList.add('empty'); }
+  }
+
+  function onKeyTap(ch) {
+    if (guess.answered || guess.typed.length >= 16) return;
+    guess.typed += ch;
+    PG.sound.play('blip');
+    if (tid('guess-result').textContent) tid('guess-result').textContent = '';
+    renderTyped();
+  }
+  function onBackspace() {
+    if (guess.answered || !guess.typed) return;
+    guess.typed = guess.typed.slice(0, -1);
+    PG.sound.play('tick');
+    renderTyped();
+  }
+
   function renderGuessScore() {
     tid('guess-score').textContent =
       PG.data.t('guessScore', { x: guess.score, y: guess.streak }) +
       '  ·  ' + PG.data.t('guessBest', { z: state.guessBest });
   }
 
+  function setTypingVisible(on) {
+    tid('type-keyboard').hidden = !on;
+    document.querySelector('.type-actions').hidden = !on;
+  }
+
   function renderGuessRound() {
     guess.answered = false;
+    guess.typed = '';
+    buildKeyboard();
     const sprite = tid('guess-sprite');
     sprite.src = PG.data.spritePath(guess.round.target.id, false);
     sprite.classList.add('silhouette');
@@ -180,13 +236,8 @@
     tid('guess-prompt').textContent = PG.data.t('guessPrompt');
     tid('guess-result').textContent = '';
     tid('guess-next-btn').hidden = true;
-    tid('guess-form').hidden = false;
-    tid('guess-giveup-btn').hidden = false;
-    const input = tid('guess-input');
-    input.value = '';
-    input.disabled = false;
-    tid('guess-submit-btn').disabled = false;
-    if (!TEST) input.focus();
+    setTypingVisible(true);
+    renderTyped();
     renderGuessScore();
   }
 
@@ -203,17 +254,14 @@
   }
 
   // Reveal the colored sprite and lock the round. `won` distinguishes a correct
-  // guess from a give-up (which still reveals the answer but breaks the streak).
+  // guess from a skip (which still reveals the answer but breaks the streak).
   function revealGuess(won) {
     guess.answered = true;
     const target = guess.round.target;
     const sprite = tid('guess-sprite');
     sprite.classList.remove('silhouette');
     sprite.alt = target.name;
-    tid('guess-input').disabled = true;
-    tid('guess-submit-btn').disabled = true;
-    tid('guess-form').hidden = true;
-    tid('guess-giveup-btn').hidden = true;
+    setTypingVisible(false);
     if (won) {
       guess.score += 1;
       guess.streak += 1;
@@ -232,20 +280,27 @@
 
   function onGuessSubmit() {
     if (guess.answered) return;
-    const input = tid('guess-input');
-    if (PG.guess.isCorrect(input.value, guess.round.target.name)) {
+    if (PG.guess.isCorrect(guess.typed, guess.round.target.name)) {
       revealGuess(true);
     } else {
-      // Wrong: let the kid try again — the streak only breaks on give-up.
+      // Wrong: let the kid keep trying — the streak only breaks on skip.
       tid('guess-result').textContent = PG.data.t('guessTryAgain');
-      PG.sound.play('blip');
-      input.select();
+      PG.sound.play('throw');
     }
   }
 
-  function onGuessGiveUp() {
+  function onGuessSkip() {
     if (guess.answered) return;
     revealGuess(false);
+  }
+
+  // Physical keyboard works too (for whoever can reach it), but is never required.
+  function onGuessKeydown(e) {
+    const active = document.querySelector('[data-screen="guess"]');
+    if (!active || !active.classList.contains('active')) return;
+    if (e.key === 'Enter') { e.preventDefault(); onGuessSubmit(); }
+    else if (e.key === 'Backspace') { e.preventDefault(); onBackspace(); }
+    else if (/^[a-z0-9]$/i.test(e.key)) { onKeyTap(e.key.toLowerCase()); }
   }
 
   function wire() {
@@ -258,9 +313,10 @@
     tid('back-btn').addEventListener('click', () => showScreen('title'));
     tid('guess-mode-btn').addEventListener('click', () => { PG.sound.play('blip'); startGuess(); });
     tid('guess-back-btn').addEventListener('click', () => showScreen('title'));
-    tid('guess-form').addEventListener('submit', e => { e.preventDefault(); onGuessSubmit(); });
-    tid('guess-giveup-btn').addEventListener('click', () => { PG.sound.play('blip'); onGuessGiveUp(); });
+    tid('guess-submit-btn').addEventListener('click', () => onGuessSubmit());
+    tid('guess-skip-btn').addEventListener('click', () => { PG.sound.play('blip'); onGuessSkip(); });
     tid('guess-next-btn').addEventListener('click', () => { PG.sound.play('blip'); startGuessRound(); });
+    document.addEventListener('keydown', onGuessKeydown);
     tid('dex-back-btn').addEventListener('click', () => showScreen('title'));
     const mb = tid('mute-btn');
     if (mb) mb.addEventListener('click', () => { state.muted = PG.sound.toggleMute(); updateMuteBtn(); });
