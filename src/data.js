@@ -94,6 +94,16 @@ PG.data = (function () {
     rare: { base: 0.18, weight: 8, ring: '#fb923c' },
     legendary: { base: 0.13, weight: 4, ring: '#ef4444' },
   };
+  // Poké Ball types. `mult` scales the catch chance (so a better ball makes a
+  // tough Pokémon easier). `guaranteed` balls always catch. Order here is the
+  // order they appear in the picker (weakest → strongest). `key` is the id.
+  const BALLS = {
+    poke:   { key: 'poke',   nameKey: 'ballPoke',   mult: 1.0,  top: '#ee1515', unlimited: true },
+    great:  { key: 'great',  nameKey: 'ballGreat',  mult: 1.5,  top: '#2a75bb' },
+    ultra:  { key: 'ultra',  nameKey: 'ballUltra',  mult: 2.2,  top: '#f6c945' },
+    master: { key: 'master', nameKey: 'ballMaster', mult: 1.0,  top: '#7c3aed', guaranteed: true },
+  };
+  const BALL_ORDER = ['poke', 'great', 'ultra', 'master'];
   const SHINY_RATE = 1 / 12;
   // PokeAPI "body shape" per Pokémon, baked in at build time (see scripts/fetch-sprites.mjs).
   const SHAPES = GEN.SHAPES || {"1":"quadruped","3":"quadruped","4":"upright","6":"upright","7":"upright","9":"upright","25":"quadruped","39":"humanoid","52":"quadruped","59":"quadruped","65":"humanoid","68":"humanoid","83":"wings","94":"upright","105":"upright","115":"upright","122":"humanoid","123":"bug-wings","127":"humanoid","130":"squiggle","131":"fish","132":"ball","133":"quadruped","143":"humanoid","149":"upright","150":"upright","169":"bug-wings","196":"quadruped","197":"quadruped","227":"wings","233":"legs","248":"upright","249":"wings","250":"wings","257":"upright","282":"humanoid","302":"humanoid","303":"humanoid","306":"upright","332":"humanoid","354":"upright","359":"quadruped","376":"heads","384":"squiggle","405":"quadruped","426":"arms","442":"blob","445":"upright","448":"upright","461":"upright","464":"upright","472":"wings","477":"arms","479":"ball","487":"tentacles","530":"humanoid","553":"upright","563":"blob","596":"armor","604":"fish","625":"humanoid","628":"wings","635":"upright","637":"bug-wings","658":"humanoid","663":"wings","681":"blob","687":"blob","700":"quadruped","701":"humanoid","711":"blob","715":"wings","718":"squiggle","745":"quadruped","768":"humanoid","778":"squiggle","784":"upright","849":"upright","861":"humanoid","884":"upright","887":"upright","888":"quadruped"};
@@ -107,6 +117,12 @@ PG.data = (function () {
     legendaryAlert: '⚡ Pokémon Legendaris muncul! ⚡',
     shinyAlert: '✨ Pokémon Shiny langka! ✨',
     throwBall: 'Lempar Poké Ball!',
+    throwNamed: 'Lempar {ball}!',
+    chooseBall: 'Pilih bola:',
+    ballPoke: 'Poké Ball',
+    ballGreat: 'Great Ball',
+    ballUltra: 'Ultra Ball',
+    ballMaster: 'Master Ball',
     qPerfect: 'Sempurna!',
     qGreat: 'Hebat!',
     qNice: 'Bagus!',
@@ -114,6 +130,8 @@ PG.data = (function () {
     caughtLegendary: 'LUAR BIASA! Kamu menangkap {name}! 🌟',
     caughtShiny: '✨ WOW! Kamu menangkap {name} Shiny langka! ✨',
     miss: 'Yah, lolos! Coba lagi!',
+    fleeWarn: '💨 Cepat! Dia mau kabur!',
+    fled: '{name} kabur! 🏃💨',
     findAnother: 'Cari Pokémon lain!',
     pokedexTitle: 'Koleksiku',
     progress: 'Tertangkap: {x} / {n}',
@@ -130,6 +148,15 @@ PG.data = (function () {
     guessNext: 'Lanjut!',
     guessScore: 'Skor: {x}  ·  Streak: {y}',
     guessBest: 'Rekor terbaik: {z}',
+    animalMode: 'Tebak Hewan!',
+    animalPrompt: 'Hewan apa ini? Ketik namanya!',
+    animalTypeHint: 'Ketik di keyboard-mu! Ikuti tombol yang menyala.',
+    animalCorrect: 'Benar! Ini {name}! 🎉',
+    animalWrong: 'Yah! Ini {name}.',
+    animalSkip: 'Lewati',
+    animalNext: 'Lanjut!',
+    animalScore: 'Skor: {x}  ·  Streak: {y}',
+    animalBest: 'Rekor terbaik: {z}',
   };
   const byId = {};
   ROSTER.forEach(p => { byId[p.id] = p; });
@@ -142,5 +169,6 @@ PG.data = (function () {
   function get(id) { return byId[id]; }
   function shapeOf(id) { return SHAPES[id] || 'unknown'; }
   function spritePath(id, shiny) { return (shiny ? 'images/shiny/' : 'images/') + id + '.png'; }
-  return { ROSTER, TIERS, SHINY_RATE, SHAPES, STRINGS, t, qualityLabel, get, shapeOf, spritePath };
+  function ballName(key) { const b = BALLS[key]; return b ? t(b.nameKey) : t('ballPoke'); }
+  return { ROSTER, TIERS, BALLS, BALL_ORDER, SHINY_RATE, SHAPES, STRINGS, t, qualityLabel, get, shapeOf, spritePath, ballName };
 })();

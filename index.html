@@ -14,6 +14,7 @@
       <p data-testid="subtitle" class="subtitle"></p>
       <button data-testid="play-btn" class="btn btn-big">Main!</button>
       <button data-testid="guess-mode-btn" class="btn btn-big btn-guess">Tebak Pokémon!</button>
+      <button data-testid="animal-mode-btn" class="btn btn-big btn-animal">Tebak Hewan!</button>
       <button data-testid="open-pokedex-btn" class="btn">Koleksiku</button>
       <button data-testid="mute-btn" class="btn btn-icon" aria-label="suara">🔊</button>
     </section>
@@ -35,6 +36,8 @@
         <div data-testid="quality-msg" class="quality-msg"></div>
         <div data-testid="result-msg" class="result-msg"></div>
         <div data-testid="hint-msg" class="hint-msg" aria-live="polite"></div>
+        <div data-testid="ball-label" class="ball-label">Pilih bola:</div>
+        <div data-testid="ball-tray" class="ball-tray"></div>
         <button data-testid="throw-btn" class="btn btn-big">Lempar Poké Ball!</button>
         <button data-testid="find-another-btn" class="btn btn-big" hidden>Cari Pokémon lain!</button>
       </div>
@@ -54,6 +57,20 @@
       <button data-testid="guess-next-btn" class="btn btn-big" hidden>Lanjut!</button>
     </section>
 
+    <section data-screen="animals" class="screen" hidden>
+      <button data-testid="animal-back-btn" class="btn btn-back">Kembali</button>
+      <div data-testid="animal-score" class="guess-score"></div>
+      <div data-testid="animal-prompt" class="wild-name guess-prompt"></div>
+      <div class="stage guess-stage">
+        <div data-testid="animal-sprite" class="animal-emoji silhouette" aria-hidden="true"></div>
+      </div>
+      <div data-testid="animal-result" class="result-msg"></div>
+      <div data-testid="animal-typed" class="guess-typed" aria-live="polite"></div>
+      <div data-testid="animal-keyboard" class="type-keyboard" aria-hidden="true"></div>
+      <button data-testid="animal-skip-btn" class="btn btn-giveup">Lewati</button>
+      <button data-testid="animal-next-btn" class="btn btn-big" hidden>Lanjut!</button>
+    </section>
+
     <section data-screen="pokedex" class="screen" hidden>
       <button data-testid="dex-back-btn" class="btn btn-back">Kembali</button>
       <h2>Koleksiku</h2>
@@ -70,6 +87,7 @@
   <script src="src/spawn.js"></script>
   <script src="src/catch.js"></script>
   <script src="src/guess.js"></script>
+  <script src="src/animals.js"></script>
   <script src="src/sound.js"></script>
   <script src="src/pokedex.js"></script>
   <script src="src/main.js"></script>
